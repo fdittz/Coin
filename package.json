@@ -1,0 +1,19 @@
+{
+  "name": "coin",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "async": "^3.2.2",
+    "async-await-queue": "^1.2.0",
+    "axios": "^0.24.0",
+    "talib": "^1.1.4",
+    "trading-indicator": "^1.0.4-beta",
+    "ws": "^8.2.3"
+  }
+}

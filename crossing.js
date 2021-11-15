@@ -17,14 +17,14 @@ function sleep(ms) {
 
 const SIMULTANEOUS_REQUESTS = 10;
 const INTERVAL = "1m"
-const NUM_SAFETY_ORDERS = 10;
+const NUM_SAFETY_ORDERS = 5;
 const EMA_FAST = 10;
 const EMA_MID = 25;
 const EMA_SLOW = 50
 const FEE = 0.00075;
 const FEE_UP = 1 + FEE;
 const FEE_DOWN = 1 - FEE;
-const TARGET = 0.004; 
+const TARGET = 0.008; 
 const DEVIATION = 0.008;
 
 function fetchKline(symbol) {
@@ -202,9 +202,10 @@ class Trader  {
                             this.amountCoin += stepQty;
                             this.amountUsdt -= this.splitQty;  
                             console.log(getDate(), `[Safety Step ${this.safetyStep}] Bought ${stepQty} ${this.symbol} with ${this.splitQty} [price: ${obj.p}]`);
-                            this.target *= (1 - DEVIATION);
-                            this.nextSafetyOrder = obj.p * (1 - DEVIATION)
-                            this.avgPrice = ((this.avgPrice*this.safetyStep) + obj.p) / (this.safetyStep + 1);                            
+                            this.avgPrice = ((this.avgPrice*this.safetyStep) + obj.p) / (this.safetyStep + 1);  
+                            this.target = this.avgPrice * (1 + TARGET);
+                            this.nextSafetyOrder = this.avgPrice * (1 - DEVIATION)
+                                                      
                             console.log(getDate(), `[Safety Step ${this.safetyStep}] Holding ${this.amountCoin} at an avg. price of ${this.avgPrice}, total spent ${this.splitQty}`);
                             console.log(getDate(), `[Safety Step ${this.safetyStep}] Target: ${this.target}, setting Next Safety Order at ${this.nextSafetyOrder}`);                            
                         }

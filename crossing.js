@@ -24,8 +24,8 @@ const EMA_SLOW = 50
 const FEE = 0.00075;
 const FEE_UP = 1 + FEE;
 const FEE_DOWN = 1 - FEE;
-const TARGET = 0.008; 
-const DEVIATION = 0.008;
+const TARGET = 0.01; 
+const DEVIATION = 0.005;
 
 function fetchKline(symbol) {
     return  axios.get(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${INTERVAL}&limit=1000`)

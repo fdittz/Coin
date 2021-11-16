@@ -17,7 +17,7 @@ function sleep(ms) {
 
 const SIMULTANEOUS_REQUESTS = 10;
 const INTERVAL = "1m"
-const NUM_SAFETY_ORDERS = 5;
+const NUM_SAFETY_ORDERS = 8;
 const EMA_FAST = 10;
 const EMA_MID = 25;
 const EMA_SLOW = 50
@@ -25,7 +25,7 @@ const FEE = 0.00075;
 const FEE_UP = 1 + FEE;
 const FEE_DOWN = 1 - FEE;
 const TARGET = 0.01; 
-const DEVIATION = 0.005;
+const DEVIATION = 0.01;
 
 function fetchKline(symbol) {
     return  axios.get(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${INTERVAL}&limit=1000`)
@@ -203,7 +203,8 @@ class Trader  {
                             this.amountUsdt -= this.splitQty;  
                             console.log(getDate(), `[Safety Step ${this.safetyStep}] Bought ${stepQty} ${this.symbol} with ${this.splitQty} [price: ${obj.p}]`);
                             this.avgPrice = ((this.avgPrice*this.safetyStep) + obj.p) / (this.safetyStep + 1);  
-                            this.target = this.avgPrice * (1 + TARGET);
+                            this.target = this.avgPrice * (1 + TARGET - TARGET/(NUM_SAFETY_ORDERS+1 - this.safetyStep));        
+                            console.log(getDate(), `[Safety Step ${this.safetyStep}] Target % at ${TARGET - TARGET/(NUM_SAFETY_ORDERS+1 - this.safetyStep)}`);
                             this.nextSafetyOrder = this.avgPrice * (1 - DEVIATION)
                                                       
                             console.log(getDate(), `[Safety Step ${this.safetyStep}] Holding ${this.amountCoin} at an avg. price of ${this.avgPrice}, total spent ${this.splitQty}`);

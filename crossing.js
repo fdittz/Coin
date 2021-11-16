@@ -203,8 +203,9 @@ class Trader  {
                             this.amountUsdt -= this.splitQty;  
                             console.log(getDate(), `[Safety Step ${this.safetyStep}] Bought ${stepQty} ${this.symbol} with ${this.splitQty} [price: ${obj.p}]`);
                             this.avgPrice = ((this.avgPrice*this.safetyStep) + obj.p) / (this.safetyStep + 1);  
-                            this.target = this.avgPrice * (1 + TARGET - TARGET/(NUM_SAFETY_ORDERS+1 - this.safetyStep));        
-                            console.log(getDate(), `[Safety Step ${this.safetyStep}] Target % at ${TARGET - TARGET/(NUM_SAFETY_ORDERS+1 - this.safetyStep)}`);
+                            let step = TARGET/NUM_SAFETY_ORDERS;
+                            this.target = this.avgPrice * (1 + (TARGET - (step*this.safetyStep)));        
+                            console.log(getDate(), `[Safety Step ${this.safetyStep}] Target % at ${(1 + (TARGET - (step*this.safetyStep)))}`);
                             this.nextSafetyOrder = this.avgPrice * (1 - DEVIATION)
                                                       
                             console.log(getDate(), `[Safety Step ${this.safetyStep}] Holding ${this.amountCoin} at an avg. price of ${this.avgPrice}, total spent ${this.splitQty}`);

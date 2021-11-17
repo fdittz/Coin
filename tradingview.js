@@ -17,7 +17,7 @@ function sleep(ms) {
 
 const SIMULTANEOUS_REQUESTS = 10;
 const INTERVAL = "1m"
-const NUM_SAFETY_ORDERS = 10;
+const NUM_SAFETY_ORDERS = 30;
 const EMA_FAST = 10;
 const EMA_MID = 25;
 const EMA_SLOW = 50
@@ -26,7 +26,7 @@ const FEE_UP = 1 + FEE;
 const FEE_DOWN = 1 - FEE;
 const TARGET = 0.01; 
 const DEVIATION = 0.01;
-const STEP_SCALING = 1.002;
+const STEP_SCALING = 1.005;
 
 function fetchKline(symbol) {
     return  axios.get(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${INTERVAL}&limit=1000`)
@@ -41,91 +41,94 @@ function fetchKline(symbol) {
         console.log(getDate(),error);
     })
 }  
+
+async function fetchMarkets() {
+    let markets = await(await binance.fetchMarkets())
+        .filter(item => item.type == "spot")
+        .filter(item => item.active = true)
+        .filter(item => item.info.status == "TRADING")
+        .filter(item => item.quoteId.indexOf("USDT") >= 0)
+        .filter( item => item.symbol != "BTC/USDT")
+        .filter(item => item.spot == true)
+        .map(item => item.symbol)
+    let tickers = await binance.fetchTickers(markets);
+    tickers = Object.keys(tickers).map( item => {
+        return tickers[item]
+    }).filter(item => {
+        return item.quoteVolume > 50000000
+    }).map(item => {
+        return item.info.symbol
+    })
+    return  axios.post(`https://scanner.tradingview.com/crypto/scan`, {"filter":[{"left":"exchange","operation":"equal","right":"BINANCE"}],"columns":["name","Recommend.All"], "sort":{"sortBy":"Recommend.All","sortOrder":"desc"}})
+    .then(function (response) {
+        var responseMarkets = response.data.data;
+        responseMarkets = responseMarkets.filter(item => {
+            return (tickers.indexOf(item.d[0]) >= 0) && (item.s.indexOf("PREMIUM") == -1) && (item.d[1] != null)
+        })
+        return responseMarkets
+    })
+    .catch(function (error) {
+
+        console.log(getDate(),error);
+        return fetchMarkets();
+    })
+    
+}
+async function fetchRecommendation(symbol) {
+    return  axios.post(`https://scanner.tradingview.com/crypto/scan`, {"filter":[{"left":"exchange","operation":"equal","right":"BINANCE"},{"left":"name,description","operation":"equal","right":symbol}],"columns":["name","Recommend.All"]})
+    .then(function (response) {
+        return response.data;
+    })
+    .catch(function (error) {
+
+        console.log(getDate(),error);
+    })
+}
   
 async function init() {
     var symbolData = {};
     var pending = [];
     var url = "";    
-
     console.log("Starting Trailing + Safety Trader");
     console.log("Candle interval: ", INTERVAL);
-    console.log("Running FAST/MID/SLOW EMAs", `${EMA_FAST}/${EMA_MID}/${EMA_SLOW}`);
     console.log("Safety Orders:", NUM_SAFETY_ORDERS)
     console.log("Target Stop: ", TARGET);
-
-    markets = await(await binance.fetchMarkets())
-        .filter(item => item.type == "spot")
-        .filter(item => item.active = true)
-        .filter(item => item.info.status == "TRADING")
-        .filter(item => item.symbol.indexOf("USDT") >= 0)
-        .filter( item => item.symbol != "BTC/USDT")
-        .filter(item => item.spot == true)
-        .map(item => item.info.symbol)
     
-    markets = ["ETHUSDT"]
-
-    //console.log(getDate(),"Found ", markets.length, " pairs")
-
-    url = "wss://stream.binance.com:9443/ws";
-   
-    markets.forEach(item => {
-        url += `/${item.toLowerCase()}@kline_${INTERVAL}`;
-    })
-    
-    console.log(getDate(),"Fetching market data ", markets.length, " pairs")
-    for(let i = 0; i < markets.length; i++){
-        let symbol = markets[i];
-        if (pending.length < SIMULTANEOUS_REQUESTS) {
-            pending.push(
-                fetchKline(symbol).then(data => {
-                    symbolData[symbol] = data;                    
-                }).catch(err => {
-                    console.log(getDate(),symbol, err)
-                })
-            )
-        } 
-        if (pending.length == SIMULTANEOUS_REQUESTS || i == markets.length-1) {
-            await Promise.all(pending).then( async(data) => {
-                pending = [];
-            });                
+    console.log(getDate(),"Fetching data from tradingview")
+    while(true) {        
+        if (Object.keys(traders) < 1) {
+            var markets = await fetchMarkets();
+            console.log("Top Recommendations")
+            console.log(markets.slice(0,10));
+            var best = markets[0].d;
+            traders[best[0]] = new Trader();
+            traders[best[0]].symbol = best[0];
+            traders[best[0]].amountUsdt = 100;
+            traders[best[0]].interval = INTERVAL;
+            traders[best[0]].startUsdt = traders[best[0]].amountUsdt;
+            traders[best[0]].callback = changeBalance;                
+            console.log(getDate(),`Market ${best[0]} recommendation: ${best[1]}`);
+            traders[best[0]].init();
         }
-    };
-    console.log(getDate(),"Listening for websocket data")
-    const ws = new WebSocket(url);
-    ws.onmessage = (event) => {        
-        const obj = JSON.parse(event.data).k;
-        if (obj.x) {
-            symbolData[obj.s].push({value:obj.c, time: obj.T}); 
-           
-            var data = symbolData[obj.s].map( item => parseFloat(item.value));         
-            var fastValue = indicators.SMA.calculate({period : EMA_FAST, values : data});
-            var midValue  = indicators.SMA.calculate({period : EMA_MID, values : data});
-            var slowValue = indicators.SMA.calculate({period : EMA_SLOW, values : data});
-            fastValue = fastValue[fastValue.length - 1]
-            midValue = midValue[midValue.length - 1]
-            slowValue = slowValue[slowValue.length -1]
-            if (fastValue > midValue && midValue > slowValue && !traders.hasOwnProperty(obj.s)) {
-                if (!hasCrossed) {
-                    hasCrossed = true;
-                    traders[obj.s] = new Trader();
-                    traders[obj.s].symbol = obj.s;
-                    traders[obj.s].amountUsdt = 100;
-                    traders[obj.s].data = data;
-                    traders[obj.s].interval = INTERVAL;
-                    traders[obj.s].startUsdt = traders[obj.s].amountUsdt;
-                    traders[obj.s].callback = changeBalance;                
-                    console.log(getDate(),`Fast EMA condition is favourable: ${fastValue}`);
-                    traders[obj.s].init();
-                }
+        await sleep(30000)
+
+        /*for (var market of markets) {
+            var recommendationData = await fetchRecommendation(market);
+            let recommendation = recommendationData.data[0].d[1];
+            if (recommendation > 0 && !traders.hasOwnProperty(market)) {
+                hasCrossed = true;
+                traders[market] = new Trader();
+                traders[market].symbol = market;
+                traders[market].amountUsdt = 100;
+                traders[market].interval = INTERVAL;
+                traders[market].startUsdt = traders[market].amountUsdt;
+                traders[market].callback = changeBalance;                
+                console.log(getDate(),`Market recommendation: ${recommendation}`);
+                traders[market].init();
+            //}
             }
-            else {
-                if (hasCrossed) {
-                    hasCrossed = false;
-                }
-            }
-        }
-    };
-        
+        }*/
+    }
 }
 
 function changeBalance(value, symbol) {
@@ -196,16 +199,16 @@ class Trader  {
                     console.log(getDate(),`Target: ${this.target}, setting Next Safety Order at ${this.nextSafetyOrder}`);                                     
                 } else  {
                     if (obj.p <= this.nextSafetyOrder) {
-                        if (this.safetyStep < NUM_SAFETY_ORDERS) {
-                            this.safetyStep++;                            
+                        if (this.safetyStep < NUM_SAFETY_ORDERS) {                            
+                            this.safetyStep++;   
+                            console.log(getDate(), `[Safety Step ${this.safetyStep}] Unable to reach current target, triggering next Safety Order at ${this.nextSafetyOrder}`);                         
                             var stepQty = (this.splitQty*FEE_DOWN) / obj.p;
                             this.amountCoin += stepQty;
                             this.amountUsdt -= this.splitQty;
                             this.avgPrice = ((this.avgPrice*this.safetyStep) + obj.p) / (this.safetyStep + 1);                              
                             let step = TARGET/NUM_SAFETY_ORDERS;
                             this.target = this.avgPrice * (1 + (TARGET - (step*this.safetyStep)));        
-                            this.nextSafetyOrder = this.avgPrice * (1 - DEVIATION * STEP_SCALING)
-                            console.log(getDate(), `[Safety Step ${this.safetyStep}] Unable to reach current target, triggering next Safety Order at ${this.nextSafetyOrder}`);
+                            this.nextSafetyOrder = this.nextSafetyOrder * (1 - DEVIATION * STEP_SCALING)                            
                             console.log(getDate(), `[Safety Step ${this.safetyStep}] Bought ${stepQty} ${this.symbol} with ${this.splitQty} [price: ${obj.p}]`);
                             console.log(getDate(), `[Safety Step ${this.safetyStep}] Target % at ${(1 + (TARGET - (step*this.safetyStep)))}`);
                             console.log(getDate(), `[Safety Step ${this.safetyStep}] Holding ${this.amountCoin} at an avg. price of ${this.avgPrice}, total spent ${this.splitQty}`);

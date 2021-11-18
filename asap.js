@@ -116,7 +116,7 @@ class Trader  {
                             this.stepQuoteAmount = SAFETY_ORDER_SIZE * Math.pow(STEP_VOLUME_SCALING, this.safetyStep - 1);                      
                             var stepQty = this.stepQuoteAmount * FEE_DOWN  / obj.p;
                             this.amountCoin += stepQty; 
-                            this.avgPrice = (this.quoteSpent * this.avgPrice) + (this.stepQuoteAmount * obj.p) / (this.quoteSpent + this.stepQuoteAmount)
+                            this.avgPrice = ((this.quoteSpent * this.avgPrice) + (this.stepQuoteAmount * obj.p)) / ((this.quoteSpent + this.stepQuoteAmount))
                             this.quoteSpent += this.stepQuoteAmount
                             this.target = this.avgPrice * (1 + (TARGET_PROFIT));        
                             this.nextSafetyOrder = this.nextSafetyOrder * (1 - DEVIATION)                            

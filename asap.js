@@ -2,13 +2,11 @@ const ccxt = require('ccxt');
 const binance = new ccxt.binance();
 const indicators = require('technicalindicators')
 const axios = require('axios')
-
-
 const WebSocket = require('ws');
-var markets;
+var args = process.argv.slice(2);
+
 var balance = 0;
 var traders = {};
-var hasCrossed = false;
 
 
 function sleep(ms) {
@@ -19,16 +17,16 @@ const SIMULTANEOUS_REQUESTS = 10;
 
 const FEE = 0.00075;
 const FEE_DOWN = 1 - FEE;
-const BASE_ORDER_SIZE = 10;
-const SAFETY_ORDER_SIZE = 10;
+const BASE_ORDER_SIZE = 45;
+const SAFETY_ORDER_SIZE = 45;
 const TARGET_PROFIT = 0.005;
-const NUM_SAFETY_ORDERS = 30;
+const NUM_SAFETY_ORDERS = 15;
 const DEVIATION = 0.01 ;
 const STEP_VOLUME_SCALING = 1.05;
   
 async function init() {
     let markets = await(await binance.fetchMarkets())
-    console.log("Starting Trailing + Safety Trader");
+    console.log("Starting Safety Trader");
     console.log("Safety Orders:", NUM_SAFETY_ORDERS)
     console.log("Target Stop: ", TARGET_PROFIT);
     let totalQuoteNeeded = 0;
@@ -37,7 +35,7 @@ async function init() {
     }
     console.log(totalQuoteNeeded)
     while (true) {        
-        markets = ["ETHBRL"]
+        markets = [args[0]+args[1]]
         markets.forEach(market => {
             if (!traders.hasOwnProperty(market)) {
                 traders[market] = new Trader();
@@ -59,43 +57,39 @@ function changeBalance(value, symbol) {
     console.log(getDate(),"Balance is now ", balance)
 }
 
-
-
 init();
 
 
 class Trader  {
 
     constructor() {
+        this.type = "LONG"
+        this.base = args[0];
+        this.quote = args[1];
         this.symbol = ""
-        this.amountUsdt =  0
-        this.startUsdt = 0
         this.active = false;
-        this.amountCoin = 0
-        this.data = []
+        this.amountIn = 0
         this.callback = null;
         this.tradeFinished = false;
         this.startTime = new Date();
         this.zombieLoops = 0;
         this.lastPing = 0;
         this.avgPrice = 0;
-        this.splitQty = 0;
         this.target = 0;
         this.nextSafetyOrder = 0;
         this.safetyStep = 0;
-        this.stepQuoteAmount = 0;
+        this.amountOut = 0;
         this.ws = null;
     }    
 
     init() {
-        console.log(getDate(),"Initializing Trader:" , this.symbol)
+        console.log(getDate(), `Initializing ${this.type} Trader:` , this.symbol)
         var url = "wss://stream.binance.com:9443/ws"
         url += `/${this.symbol.toLowerCase()}@trade`
         this.ws = new WebSocket(url);
         this.ws.onmessage = (event) => {        
             var obj = JSON.parse(event.data);
-            this.ping();
-            
+            this.ping();            
             if (obj.e == "trade" && !this.tradeFinished) {
                 obj.p = parseFloat(obj.p)
                 if (!this.active) {
@@ -105,29 +99,29 @@ class Trader  {
                     this.nextSafetyOrder = obj.p * (1 - DEVIATION)
                     this.avgPrice = obj.p;
                     this.quoteSpent = BASE_ORDER_SIZE
-                    this.amountCoin = (this.quoteSpent*FEE_DOWN) / obj.p;
-                    console.log(getDate(),`Bought ${this.amountCoin} ${this.symbol} with ${BASE_ORDER_SIZE} [price: ${obj.p}]`);
+                    this.amountIn = (this.quoteSpent*FEE_DOWN) / obj.p;
+                    console.log(getDate(),`Bought ${this.amountIn} ${this.symbol} with ${BASE_ORDER_SIZE} [price: ${obj.p}]`);
                     console.log(getDate(),`Target: ${this.target}, setting Next Safety Order at ${this.nextSafetyOrder}`);                                     
                 } else  {
                     if (obj.p <= this.nextSafetyOrder) {
                         if (this.safetyStep < NUM_SAFETY_ORDERS) {                            
                             this.safetyStep++;   
                             console.log(getDate(), `[Safety Step ${this.safetyStep}] Unable to reach current target, triggering Safety Order at ${this.nextSafetyOrder}`);
-                            this.stepQuoteAmount = SAFETY_ORDER_SIZE * Math.pow(STEP_VOLUME_SCALING, this.safetyStep - 1);                      
-                            var stepQty = this.stepQuoteAmount * FEE_DOWN  / obj.p;
-                            this.amountCoin += stepQty; 
-                            this.avgPrice = ((this.quoteSpent * this.avgPrice) + (this.stepQuoteAmount * obj.p)) / ((this.quoteSpent + this.stepQuoteAmount))
-                            this.quoteSpent += this.stepQuoteAmount
+                            this.amountOut = SAFETY_ORDER_SIZE * Math.pow(STEP_VOLUME_SCALING, this.safetyStep - 1);                      
+                            var stepQty = this.amountOut * FEE_DOWN  / obj.p;
+                            this.amountIn += stepQty; 
+                            this.avgPrice = ((this.quoteSpent * this.avgPrice) + (this.amountOut * obj.p)) / ((this.quoteSpent + this.amountOut))
+                            this.quoteSpent += this.amountOut
                             this.target = this.avgPrice * (1 + (TARGET_PROFIT));        
                             this.nextSafetyOrder = this.nextSafetyOrder * (1 - DEVIATION)                            
-                            console.log(getDate(), `[Safety Step ${this.safetyStep}] Bought ${stepQty} ${this.symbol} with ${this.stepQuoteAmount} [price: ${obj.p}]`);
-                            console.log(getDate(), `[Safety Step ${this.safetyStep}] Holding ${this.amountCoin} at an avg. price of ${this.avgPrice}, total spent ${this.quoteSpent}`);
+                            console.log(getDate(), `[Safety Step ${this.safetyStep}] Bought ${stepQty} ${this.symbol} with ${this.amountOut} [price: ${obj.p}]`);
+                            console.log(getDate(), `[Safety Step ${this.safetyStep}] Holding ${this.amountIn} at an avg. price of ${this.avgPrice}, total spent ${this.quoteSpent}`);
                             console.log(getDate(), `[Safety Step ${this.safetyStep}] Target: ${this.target}, setting Next Safety Order at ${this.nextSafetyOrder}`);                            
                         }
                         else {
                             this.tradeFinished = true;
-                            var tradeAmount = this.amountCoin * obj.p * FEE_DOWN;
-                            console.log(getDate(),`[Safety Step ${this.safetyStep}] Leaving position: Sold ${this.amountCoin} ${this.symbol} for ${tradeAmount} (${((this.amountUsdt/this.startUsdt)-1)*100}%) ? [price: ${obj.p}]`);
+                            var tradeAmount = this.amountIn * obj.p * FEE_DOWN;
+                            console.log(getDate(),`[Safety Step ${this.safetyStep}] Leaving position: Sold ${this.amountIn} ${this.symbol} for ${tradeAmount} (${((tradeAmount/this.quoteSpent)-1)*100}%) ? [price: ${obj.p}]`);
                             this.lastPing = new Date().getTime();
                             this.ws.terminate() 
                             this.ws = null;
@@ -136,11 +130,11 @@ class Trader  {
                     }
                     else if (obj.p >= this.target) {
                         this.tradeFinished = true;
-                        var tradeAmount = this.amountCoin * obj.p * FEE_DOWN;
+                        var tradeAmount = this.amountIn * obj.p * FEE_DOWN;
                         if (this.safetyStep > 0)
-                            console.log(getDate(), `[Safety Step ${this.safetyStep}] Sold ${this.amountCoin} ${this.symbol} for ${tradeAmount} (${((tradeAmount/this.quoteSpent)-1)*100}%) ? [price: ${obj.p}]`);
+                            console.log(getDate(), `[Safety Step ${this.safetyStep}] Sold ${this.amountIn} ${this.symbol} for ${tradeAmount} (${((tradeAmount/this.quoteSpent)-1)*100}%)  [price: ${obj.p}]`);
                         else
-                            console.log(getDate(), `Sold ${this.amountCoin} ${this.symbol} for ${tradeAmount} (${((tradeAmount/this.quoteSpent)-1)*100}%) ? [price: ${obj.p}]`);
+                            console.log(getDate(), `Sold ${this.amountIn} ${this.symbol} for ${tradeAmount} (${((tradeAmount/this.quoteSpent)-1)*100}%) ? [price: ${obj.p}]`);
                         this.lastPing = new Date().getTime();
                         this.ws.terminate() 
                         this.ws = null;

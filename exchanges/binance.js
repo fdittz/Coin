@@ -78,7 +78,11 @@ module.exports = class Binance {
             price: price,
             timeInForce: 'GTC'
         }
-        return this.privateCall("/v3/order",data,'POST');
+        return this.privateCall("/v3/order",data,'POST').then(result => {
+            if (result.orderId)
+                return this.convertNumbersToFloat(result);
+            return result;
+        });;
     }
 
     async marketBuy(toSpend, price, symbolInfo) {
@@ -105,7 +109,11 @@ module.exports = class Binance {
             type:"MARKET",
             quantity: quantity,
         }
-        return this.privateCall("/v3/order",data,'POST');
+        return this.privateCall("/v3/order",data,'POST').then(result => {
+            if (result.orderId)
+                return this.convertNumbersToFloat(result);
+            return result;
+        });
     }
 
     async limitSell(toSell, price, symbolInfo) {
@@ -123,7 +131,11 @@ module.exports = class Binance {
             price: price,
             timeInForce: 'GTC'
         }
-        return this.privateCall("/v3/order",data,'POST');
+        return this.privateCall("/v3/order",data,'POST').then(result => {
+            if (result.orderId)
+                return this.convertNumbersToFloat(result);
+            return result;
+        });
     }
 
     async cancelAllOrders(symbolInfo) {
@@ -139,6 +151,13 @@ module.exports = class Binance {
             orderId: orderId
         }
         return this.privateCall("/v3/order", data, 'GET');
+    }
+
+    convertNumbersToFloat(order) {
+        order.price ? order.price = parseFloat(order.price) : "";
+        order.origQty ? order.origQty = parseFloat(order.origQty) : "";
+        order.executedQty ? order.executedQty = parseFloat(order.executedQty) : "";
+        order.cummulativeQuoteQty ? order.cummulativeQuoteQty = parseFloat(order.cummulativeQuoteQty) : "";
     }
 }
 

@@ -1,5 +1,3 @@
-const ccxt = require('ccxt');
-const binance = new ccxt.binance();
 const Config = require('./config.js')
 const Trader = require('./trader.js')
 const getDate = require('./util.js');

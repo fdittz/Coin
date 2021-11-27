@@ -80,8 +80,8 @@ module.exports = class Binance {
         }
         return this.privateCall("/v3/order",data,'POST').then(result => {
             if (result.orderId)
-                return this.convertNumbersToFloat(result);
-            return result;
+                return new Promise((resolve, reject) => resolve(this.convertNumbersToFloat(result)));
+            return new Promise((resolve, reject) => resolve(result));
         });;
     }
 
@@ -111,8 +111,8 @@ module.exports = class Binance {
         }
         return this.privateCall("/v3/order",data,'POST').then(result => {
             if (result.orderId)
-                return this.convertNumbersToFloat(result);
-            return result;
+                return new Promise((resolve, reject) => resolve(this.convertNumbersToFloat(result)));
+            return new Promise((resolve, reject) => resolve(result));
         });
     }
 
@@ -133,8 +133,8 @@ module.exports = class Binance {
         }
         return this.privateCall("/v3/order",data,'POST').then(result => {
             if (result.orderId)
-                return this.convertNumbersToFloat(result);
-            return result;
+                return new Promise((resolve, reject) => resolve(this.convertNumbersToFloat(result)));
+            return new Promise((resolve, reject) => resolve(result));
         });
     }
 
@@ -158,6 +158,13 @@ module.exports = class Binance {
         order.origQty ? order.origQty = parseFloat(order.origQty) : "";
         order.executedQty ? order.executedQty = parseFloat(order.executedQty) : "";
         order.cummulativeQuoteQty ? order.cummulativeQuoteQty = parseFloat(order.cummulativeQuoteQty) : "";
+        order.fills && order.fills.length > 0 ? order.fills = order.fills.map(fill => {
+            fill.price ? fill.price = parseFloat(fill.price) : "";
+            fill.qty ? fill.qty = parseFloat(fill.qty) : "";
+            fill.commission ? fill.commission = parseFloat(fill.commission) : "";
+            return fill;
+        }) : "";
+        return order;
     }
 }
 

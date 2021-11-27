@@ -48,7 +48,7 @@ module.exports = class Trader  {
                     try {
                         baseOrder = await this.exchange.marketBuy(CONFIG.baseOrderSize, obj.p, CONFIG.symbolInfo) // Placing market base order
                         baseOrder.price = baseOrder.cummulativeQuoteQty / baseOrder.executedQty;
-
+                        
                         this.avgPrice = baseOrder.price;
                         this.quoteSpent = baseOrder.cummulativeQuoteQty;
                         this.amountIn = baseOrder.executedQty;

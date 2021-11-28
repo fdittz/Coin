@@ -43,7 +43,7 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-*const FEE = 0.00075;
+const FEE = 0.00075;
 const BASE_ORDER_SIZE = 10;
 const SAFETY_ORDER_SIZE = 10;
 const TARGET_PROFIT = 0.005; //0.005

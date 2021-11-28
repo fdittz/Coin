@@ -77,7 +77,7 @@ async function init() {
                 traders[market].config = new Config(
                     base,
                     quote,
-                    "SHORT",
+                    "LONG",
                     FEE,
                     BASE_ORDER_SIZE,
                     NUM_SAFETY_ORDERS,

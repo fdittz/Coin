@@ -187,7 +187,7 @@ module.exports = class Trader  {
                     else if (this.currentOrders.targetOrder && ( (CONFIG.type == "LONG" && obj.p >= this.currentOrders.targetOrder.price) || (CONFIG.type == "SHORT" && obj.p <= this.currentOrders.targetOrder.price) ) ) {
                         this.tradeFinished = true;
                         let result = await this.exchange.getOrderInfo(CONFIG.symbolInfo, this.currentOrders.targetOrder.orderId);
-                        result.executedQty = result.executedQty;                        
+                        console.log(result)
                         console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "", `Sold ${this.amountIn} ${CONFIG.symbol} for ${result.cummulativeQuoteQty} (${((result.cummulativeQuoteQty/this.totalAllocated)-1)*100}%)  [price: ${result.price}]`);
                         this.onHold = false;
                         this.ws.terminate() 

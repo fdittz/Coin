@@ -49,8 +49,8 @@ module.exports = class Trader  {
             safetyPrice = baseOrder.price * (1 + CONFIG.deviation);
             targetPrice = this.avgPrice * (1 - CONFIG.targetProfit);
 
-            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "", `Bought ${baseOrder.executedQty} ${CONFIG.base} with ${this.amountOut} ${CONFIG.quote} [price: ${baseOrder.price}]`);
-            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "", `Holding ${this.amountIn} ${CONFIG.base} at an avg. price of ${this.avgPrice} ${CONFIG.quote}, total spent ${this.totalAllocated} ${CONFIG.quote}`);
+            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "", `SOLD ${baseOrder.executedQty} ${CONFIG.base} for ${this.amountOut} ${CONFIG.quote} [price: ${baseOrder.price}]`);
+            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "", `Holding ${this.amountIn} ${CONFIG.quote} at an avg. price of ${this.avgPrice} ${CONFIG.quote}, total spent ${this.totalAllocated} ${CONFIG.base}`);
         }
         catch (err) {
             console.log(getDate(),"Error placing base order")
@@ -75,7 +75,7 @@ module.exports = class Trader  {
         catch(err){
             console.log(getDate(),"Error placing safety order");
             throw err;   
-        };
+        }
 
             
     }
@@ -140,7 +140,12 @@ module.exports = class Trader  {
                     this.active = true;                    
 
                     try {
-                        this.placeLongOrders(CONFIG.baseOrderSize, obj.p)
+                        if (CONFIG.type == "LONG")
+                            this.placeLongOrders(CONFIG.baseOrderSize, obj.p)
+                        else if (CONFIG.type == "SHORT") {
+                            console.log("SHORT TRADING")
+                            this.placeShortOrders(CONFIG.baseOrderSize, obj.p)
+                        }  
                     }
                     catch(err) {
                         console.log("Err msg:", err);
@@ -162,8 +167,10 @@ module.exports = class Trader  {
                             try {
                                 if (CONFIG.type == "LONG")
                                     this.placeLongOrders(this.amountOut, obj.p)
-                                else if (CONFIG.type == "SHORT")
+                                else if (CONFIG.type == "SHORT") {
+                                    console.log("SHORT TRADING")
                                     this.placeShortOrders(this.amountOut, obj.p)
+                                }   
                             }
                             catch(err) {
                                 console.log("Err msg:", err);
@@ -180,7 +187,7 @@ module.exports = class Trader  {
                     else if (this.currentOrders.targetOrder && ( (CONFIG.type == "LONG" && obj.p >= this.currentOrders.targetOrder.price) || (CONFIG.type == "SHORT" && obj.p <= this.currentOrders.targetOrder.price) ) ) {
                         this.tradeFinished = true;
                         let result = await this.exchange.getOrderInfo(CONFIG.symbolInfo, this.currentOrders.targetOrder.orderId);
-                        result.executedQty = result.executedQty;
+                        result.executedQty = result.executedQty;                        
                         console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "", `Sold ${this.amountIn} ${CONFIG.symbol} for ${result.cummulativeQuoteQty} (${((result.cummulativeQuoteQty/this.totalAllocated)-1)*100}%)  [price: ${result.price}]`);
                         this.onHold = false;
                         this.ws.terminate() 

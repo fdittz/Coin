@@ -124,16 +124,15 @@ module.exports = class Binance {
         const lotStepSize = parseFloat(symbolInfo.filters.filter(item => item.filterType == 'LOT_SIZE').map(item => item.stepSize)[0]);
         let lotPrecisionMult = 1/lotSize;
         price = Math.floor(price * pricePrecisionMult) / pricePrecisionMult;
-        let quantity = parseFloat((toSell/price).toFixed(symbolInfo.baseAssetPrecision));        
-        quantity = Math.ceil(quantity * lotPrecisionMult) / lotPrecisionMult;
-        if ( quantity * price < minNotional) {
-            quantity += lotStepSize;            
+        toSell = Math.ceil(toSell * lotPrecisionMult) / lotPrecisionMult;
+        while ( toSell * price < minNotional) {
+            toSell += lotStepSize;            
         }
         let data = {
             symbol:symbolInfo.symbol,
             side:"sell",
             type:"MARKET",
-            quantity: quantity,
+            quantity: toSell,
         }
         return this.privateCall("/v3/order",data,'POST').then(result => {
             if (result.orderId)
@@ -148,7 +147,8 @@ module.exports = class Binance {
         const lotSize = parseFloat(symbolInfo.filters.filter(item => item.filterType == 'LOT_SIZE').map(item => item.minQty)[0]);
         const lotStepSize = parseFloat(symbolInfo.filters.filter(item => item.filterType == 'LOT_SIZE').map(item => item.stepSize)[0]);
         let lotPrecisionMult = 1/lotSize;        
-        price = Math.floor(price * pricePrecisionMult) / pricePrecisionMult;        
+        price = Math.floor(price * pricePrecisionMult) / pricePrecisionMult;
+        toSell = Math.ceil(toSell * lotPrecisionMult) / lotPrecisionMult;  
         let data = {
             symbol:symbolInfo.symbol,
             side:"sell",
@@ -157,6 +157,7 @@ module.exports = class Binance {
             price: price,
             timeInForce: 'GTC'
         }
+        console.log(data)
         return this.privateCall("/v3/order",data,'POST').then(result => {
             if (result.orderId)
                 return new Promise((resolve, reject) => resolve(this.convertNumbersToFloat(result)));

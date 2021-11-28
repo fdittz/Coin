@@ -43,14 +43,22 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-const FEE = 0.00075;
+*const FEE = 0.00075;
 const BASE_ORDER_SIZE = 10;
 const SAFETY_ORDER_SIZE = 10;
 const TARGET_PROFIT = 0.005; //0.005
 const NUM_SAFETY_ORDERS = 15;
 const DEVIATION = 0.01 ; //0.01
 const STEP_VOLUME_SCALING = 1.05;
-  
+
+/*const FEE = 0.00075;
+const BASE_ORDER_SIZE = 0.0005;
+const SAFETY_ORDER_SIZE = 0.0005;
+const TARGET_PROFIT = 0.005; //0.005
+const NUM_SAFETY_ORDERS = 15;
+const DEVIATION = 0.01 ; //0.01
+const STEP_VOLUME_SCALING = 1.05;
+  */
 async function init() {
     let markets = []
     console.log("Starting Safety Trader");
@@ -69,7 +77,7 @@ async function init() {
                 traders[market].config = new Config(
                     base,
                     quote,
-                    "LONG",
+                    "SHORT",
                     FEE,
                     BASE_ORDER_SIZE,
                     NUM_SAFETY_ORDERS,

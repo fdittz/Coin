@@ -189,6 +189,7 @@ module.exports = class Trader  {
                         let result = await this.exchange.getOrderInfo(CONFIG.symbolInfo, this.currentOrders.targetOrder.orderId);
                         console.log(result)
                         console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "", `Sold ${this.amountIn} ${CONFIG.symbol} for ${result.cummulativeQuoteQty} (${((result.cummulativeQuoteQty/this.totalAllocated)-1)*100}%)  [price: ${result.price}]`);
+                        await this.exchange.cancelAllOrders(CONFIG.symbolInfo); //cancels all current orders
                         this.onHold = false;
                         this.ws.terminate() 
                         this.ws = null;

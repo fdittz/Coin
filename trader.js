@@ -160,7 +160,7 @@ module.exports = class Trader  {
                             this.safetyStep++;
                             console.log(" ");
                             console.log(getDate(), `[Safety Step ${this.safetyStep}] Unable to reach current target, triggering Safety Order at ${this.currentOrders.safetyOrder.price}`);
-                            await this.exchange.cancelOrder(Config.symbolInfo, this.targetOrder.orderId); //cancels previous target take profit order
+                            await this.exchange.cancelOrder(Config.symbolInfo, this.currentOrders.targetOrder.orderId); //cancels previous target take profit order
                             this.amountOut = CONFIG.safetyOrderSize * Math.pow(CONFIG.volumeScaling, this.safetyStep - 1);   
 
                             try {
@@ -186,7 +186,7 @@ module.exports = class Trader  {
                         this.tradeFinished = true;
                         let result = await this.exchange.getOrderInfo(CONFIG.symbolInfo, this.currentOrders.targetOrder.orderId);
                         console.log(result)                        
-                        await this.exchange.cancelOrder(CONFIG.symbolInfo, this.currentOrders.safetyOrder) //cancels previous safety order
+                        await this.exchange.cancelOrder(CONFIG.symbolInfo, this.currentOrders.safetyOrder.orderId) //cancels previous safety order
                         this.onHold = false;
                         this.ws.terminate() 
                         this.ws = null;

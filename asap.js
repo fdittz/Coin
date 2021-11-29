@@ -44,26 +44,25 @@ function sleep(ms) {
 }
 
 const FEE = 0.00075;
-const BASE_ORDER_SIZE = 10;
-const SAFETY_ORDER_SIZE = 10;
 const TARGET_PROFIT = 0.005; //0.005
 const NUM_SAFETY_ORDERS = 15;
 const DEVIATION = 0.01 ; //0.01
 const STEP_VOLUME_SCALING = 1.05;
 
-/*const FEE = 0.00075;
+//const BASE_ORDER_SIZE = 10;
+//const SAFETY_ORDER_SIZE = 10;
+//const DIRECTION = "LONG";
+
 const BASE_ORDER_SIZE = 0.0005;
 const SAFETY_ORDER_SIZE = 0.0005;
-const TARGET_PROFIT = 0.005; //0.005
-const NUM_SAFETY_ORDERS = 15;
-const DEVIATION = 0.01 ; //0.01
-const STEP_VOLUME_SCALING = 1.05;
-  */
+const DIRECTION = "SHORT";
+
 async function init() {
     let markets = []
     console.log("Starting Safety Trader");
     console.log("Safety Orders:", NUM_SAFETY_ORDERS)
     console.log("Target Stop: ", TARGET_PROFIT);
+    console.log("Type:", DIRECTION)
     let totalQuoteNeeded = 0;
     for (var i = 1; i < NUM_SAFETY_ORDERS + 1; i++) {
         totalQuoteNeeded += SAFETY_ORDER_SIZE * (Math.pow(STEP_VOLUME_SCALING,i));
@@ -77,7 +76,7 @@ async function init() {
                 traders[market].config = new Config(
                     base,
                     quote,
-                    "LONG",
+                    DIRECTION,
                     FEE,
                     BASE_ORDER_SIZE,
                     NUM_SAFETY_ORDERS,

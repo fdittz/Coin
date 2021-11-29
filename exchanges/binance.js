@@ -172,6 +172,14 @@ module.exports = class Binance {
         return this.privateCall("/v3/openOrders", data, 'DELETE')
     }
 
+    async cancelOrder(symbolInfo, orderId) {
+        let data = {
+            symbol:symbolInfo.symbol,
+            orderId: orderId
+        }
+        return this.privateCall("/v3/order", data, 'DELETE')
+    }
+
     async getOrderInfo(symbolInfo, orderId) {
         let data = {
             symbol:symbolInfo.symbol,

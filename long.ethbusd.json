@@ -1,0 +1,10 @@
+{
+    "fee": 0.00075,
+    "target_profit" : 0.007,
+    "num_safety_orders" : 15,
+    "deviation" : 0.015 ,
+    "step_volume_scaling" : 1.05,
+    "base_order_size" : 20,
+    "safety_order_size" : 20,
+    "direction" : "LONG"
+}

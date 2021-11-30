@@ -157,7 +157,6 @@ module.exports = class Binance {
             price: price,
             timeInForce: 'GTC'
         }
-        console.log(data)
         return this.privateCall("/v3/order",data,'POST').then(result => {
             if (result.orderId)
                 return new Promise((resolve, reject) => resolve(this.convertNumbersToFloat(result)));

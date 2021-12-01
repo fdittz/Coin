@@ -192,13 +192,14 @@ module.exports = class Trader  {
                         this.ws = null;
                         if (CONFIG.type == "LONG") {
                             console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "", `SOLD ${this.amountIn} ${CONFIG.base} for ${result.cummulativeQuoteQty} (${((result.cummulativeQuoteQty/this.totalAllocated)-1)*100}%)  [price: ${result.price}]`);
-                            CONFIG.callback(parseFloat(result.cummulativeQuoteQty * CONFIG.feeDown * CONFIG.feeDown) - this.totalAllocated, CONFIG.quote);
+                            CONFIG.callback(parseFloat(result.cummulativeQuoteQty * CONFIG.feeDown * CONFIG.feeDown) - this.totalAllocated, CONFIG.symbol);
                         }
                         else if (CONFIG.type == "SHORT") {
                             console.log("Total allocated", this.totalAllocated)
                             console.log("Exec qty", result.executedQty)
                             console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "", `BOUGHT ${result.executedQty} ${CONFIG.base} for ${result.cummulativeQuoteQty} (${((result.executedQty/this.totalAllocated)-1)*100}%)  [price: ${result.price}]`);
-                            CONFIG.callback(parseFloat(result.executedQty * CONFIG.feeDown * CONFIG.feeDown) - this.totalAllocated, CONFIG.base, `(${(result.executedQty * CONFIG.feeDown * CONFIG.feeDown) * result.price} ${CONFIG.quote})`);
+                            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "", `Price converted: (${(result.executedQty * CONFIG.feeDown * CONFIG.feeDown) * result.price} ${CONFIG.quote})`)
+                            CONFIG.callback(parseFloat(result.executedQty * CONFIG.feeDown * CONFIG.feeDown) - this.totalAllocated, CONFIG.symbol, );
                         }
                         
                     }

@@ -12,7 +12,7 @@ module.exports = class Trader  {
     constructor() {
         this.config = null;
         this.active = false;
-        this.processingSafetyOrder = false;
+        this.pause = false;
         this.amountIn = 0
         this.tradeFinished = false;
         this.startTime = new Date();
@@ -152,11 +152,11 @@ module.exports = class Trader  {
                     }
                                       
                     
-                } else  {
-                    if (this.currentOrders.safetyOrder && ( (CONFIG.type == "LONG" && obj.p <= this.currentOrders.safetyOrder.price) || (CONFIG.type == "SHORT" && obj.p >= this.currentOrders.safetyOrder.price)) && !this.processingSafetyOrder) {
+                } else  if (!this.pause) {
+                    if (this.currentOrders.safetyOrder && ( (CONFIG.type == "LONG" && obj.p <= this.currentOrders.safetyOrder.price) || (CONFIG.type == "SHORT" && obj.p >= this.currentOrders.safetyOrder.price))) {
                         if (this.safetyStep < CONFIG.numSafetyOrders) {
 
-                            this.processingSafetyOrder = true;                        
+                            this.pause = true;                        
                             this.safetyStep++;
                             console.log(" ");
                             console.log(getDate(), `[Safety Step ${this.safetyStep}] Unable to reach current target, triggering Safety Order at ${this.currentOrders.safetyOrder.price}`);
@@ -172,17 +172,18 @@ module.exports = class Trader  {
                             }
                             catch(err) {
                                 console.log("Err msg:", err);
-                                this.processingSafetyOrder = false;
+                                this.pause = false;
                                 return;
                             }
-                            this.processingSafetyOrder = false;
+                            this.pause = false;
                         }
                         else if (!this.onHold) {     
                             this.onHold = true;                    
                             console.log(getDate(),`[Safety Step ${this.safetyStep}] Out of safety orders, on hold: ${this.amountIn} ${CONFIG.symbol}, spent ${this.totalAllocated} with an average price of ${this.avgPrice}`);
                         }
                     }
-                    else if (this.currentOrders.targetOrder && ( (CONFIG.type == "LONG" && obj.p >= this.currentOrders.targetOrder.price) || (CONFIG.type == "SHORT" && obj.p <= this.currentOrders.targetOrder.price) ) ) {                        
+                    else if (this.currentOrders.targetOrder && ( (CONFIG.type == "LONG" && obj.p >= this.currentOrders.targetOrder.price) || (CONFIG.type == "SHORT" && obj.p <= this.currentOrders.targetOrder.price) ) ) { 
+                        this.pause = true;                       
                         let result = await this.exchange.getOrderInfo(CONFIG.symbolInfo, this.currentOrders.targetOrder.orderId);
                         console.log(result)      
                         if (result.status == "FILLED") {
@@ -192,9 +193,9 @@ module.exports = class Trader  {
                         }
                         else {
                             console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Order PARTIALLY FILLED, will remain on order book[price: ${result.price}]`);
-                        }
-                                          
-                        this.onHold = false;                        
+                        }                              
+                        this.onHold = false;
+                        this.pause = false;                     
                         if (CONFIG.type == "LONG") {
                             console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `SOLD ${result.executedQty} ${CONFIG.base} for ${result.cummulativeQuoteQty} (${((result.cummulativeQuoteQty/(result.executedQty * this.avgPrice))-1)*100}%)  [price: ${result.price}]`);
                             if (result.status == "FILLED") {
@@ -218,6 +219,7 @@ module.exports = class Trader  {
                                 CONFIG.callback(parseFloat(result.executedQty * CONFIG.feeDown * CONFIG.feeDown) - this.totalAllocated, CONFIG.symbol);
                             }
                         }
+
                         
                     }
                 }

@@ -184,7 +184,10 @@ module.exports = class Trader  {
                     }
                     else if (this.currentOrders.targetOrder && ( (CONFIG.type == "LONG" && obj.p >= this.currentOrders.targetOrder.price) || (CONFIG.type == "SHORT" && obj.p <= this.currentOrders.targetOrder.price) ) ) {
                         this.tradeFinished = true;
-                        let result = await this.exchange.getOrderInfo(CONFIG.symbolInfo, this.currentOrders.targetOrder.orderId);
+                        let result = {}
+                        while (!result.hasOwnProperty(result.status) ||  result.status != 'FILLED') {
+                            result = await this.exchange.getOrderInfo(CONFIG.symbolInfo, this.currentOrders.targetOrder.orderId);
+                        }
                         console.log(result)                        
                         await this.exchange.cancelOrder(CONFIG.symbolInfo, this.currentOrders.safetyOrder.orderId) //cancels previous safety order
                         this.onHold = false;

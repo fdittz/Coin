@@ -1,10 +1,13 @@
 {
+    "base": "ETH",
+    "quote": "BRL",
+    "direction" : "LONG",
     "fee": 0.00075,
-    "target_profit" : 0.007,
-    "num_safety_orders" : 15,
+    "baseOrderSize" : 20,
+    "numSafetyOrders" : 15,
+    "targetProfit" : 0.007,    
     "deviation" : 0.015 ,
-    "step_volume_scaling" : 1.05,
-    "base_order_size" : 20,
-    "safety_order_size" : 20,
-    "direction" : "LONG"
+    "stepVolumeScaling" : 1.05,
+    "safetyOrderSize" : 20,
+    "name": "LONG-ETHBRL"
 }

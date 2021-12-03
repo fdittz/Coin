@@ -25,7 +25,6 @@ module.exports = class Trader  {
         this.currentOrders = {};
         this.onHold = false;
         this.totalAllocated = 0;
-        this.partialllyFilled = false;
     }
 
     setConfig() {
@@ -50,8 +49,8 @@ module.exports = class Trader  {
             safetyPrice = baseOrder.price * (1 + CONFIG.deviation);
             targetPrice = this.avgPrice * (1 - CONFIG.targetProfit);
 
-            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "", `Sold ${baseOrder.executedQty} ${CONFIG.base} for ${baseOrder.cummulativeQuoteQty} ${CONFIG.quote} [price: ${baseOrder.price}]`);
-            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "", `Holding ${this.amountIn} ${CONFIG.quote} at an avg. price of ${this.avgPrice} ${CONFIG.quote}, total spent ${this.totalAllocated} ${CONFIG.base}`);
+            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Sold ${baseOrder.executedQty} ${CONFIG.base} for ${baseOrder.cummulativeQuoteQty} ${CONFIG.quote} [price: ${baseOrder.price}]`);
+            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Holding ${this.amountIn} ${CONFIG.quote} at an avg. price of ${this.avgPrice} ${CONFIG.quote}, total spent ${this.totalAllocated} ${CONFIG.base}`);
         }
         catch (err) {
             console.log(getDate(),"Error placing base order")
@@ -61,7 +60,7 @@ module.exports = class Trader  {
         try {
             targetOrder = await this.exchange.limitBuy(this.amountIn, targetPrice, CONFIG.symbolInfo) // Seting target take profit order
             this.currentOrders.targetOrder = targetOrder;
-            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "", `Target Take Profit Order Placed: ${this.currentOrders.targetOrder.price} ${CONFIG.quote}`);    
+            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Target Take Profit Order Placed: ${this.currentOrders.targetOrder.price} ${CONFIG.quote}`);    
         }
         catch(err) {
             console.log(getDate(),"Error placing target order")
@@ -71,7 +70,7 @@ module.exports = class Trader  {
         try {
             safetyOrder = await this.exchange.limitSell(CONFIG.safetyOrderSize, safetyPrice, CONFIG.symbolInfo) // Setting safety order
             this.currentOrders.safetyOrder = safetyOrder;
-            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "", `Safety Order Placed: ${this.currentOrders.safetyOrder.price}`);    
+            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Safety Order Placed: ${this.currentOrders.safetyOrder.price}`);    
         }
         catch(err){
             console.log(getDate(),"Error placing safety order");
@@ -98,8 +97,8 @@ module.exports = class Trader  {
             safetyPrice = baseOrder.price * (1 - CONFIG.deviation);
             targetPrice = this.avgPrice * (1 + CONFIG.targetProfit);
 
-            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "", `Bought ${baseOrder.executedQty} ${CONFIG.base} with ${this.amountOut} ${CONFIG.quote} [price: ${baseOrder.price}]`);
-            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "", `Holding ${this.amountIn} ${CONFIG.base} at an avg. price of ${this.avgPrice} ${CONFIG.quote}, total spent ${this.totalAllocated} ${CONFIG.quote}`);
+            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Bought ${baseOrder.executedQty} ${CONFIG.base} with ${this.amountOut} ${CONFIG.quote} [price: ${baseOrder.price}]`);
+            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Holding ${this.amountIn} ${CONFIG.base} at an avg. price of ${this.avgPrice} ${CONFIG.quote}, total spent ${this.totalAllocated} ${CONFIG.quote}`);
         }
         catch (err) {
             console.log(getDate(),"Error placing base order")
@@ -109,7 +108,7 @@ module.exports = class Trader  {
         try {
             targetOrder = await this.exchange.limitSell(this.amountIn, targetPrice, CONFIG.symbolInfo) // Seting target take profit order
             this.currentOrders.targetOrder = targetOrder;
-            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "", `Target Take Profit Order Placed: ${this.currentOrders.targetOrder.price} ${CONFIG.quote}`);    
+            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Target Take Profit Order Placed: ${this.currentOrders.targetOrder.price} ${CONFIG.quote}`);    
         }
         catch(err) {
             console.log(getDate(),"Error placing target order")
@@ -119,7 +118,7 @@ module.exports = class Trader  {
         try {
             safetyOrder = await this.exchange.limitBuy(CONFIG.safetyOrderSize, safetyPrice, CONFIG.symbolInfo) // Setting safety order
             this.currentOrders.safetyOrder = safetyOrder;
-            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "", `Safety Order Placed: ${this.currentOrders.safetyOrder.price}`);    
+            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Safety Order Placed: ${this.currentOrders.safetyOrder.price}`);    
         }
         catch(err){
             console.log(getDate(),"Error placing safety order");
@@ -136,7 +135,7 @@ module.exports = class Trader  {
             var obj = JSON.parse(event.data);
             if (obj.e == "trade" && !this.tradeFinished) {
                 obj.p = parseFloat(obj.p)
-                if (!this.active && !this.partialllyFilled) {
+                if (!this.active) {
                     // setting main order;
                     this.active = true;                    
 
@@ -154,7 +153,7 @@ module.exports = class Trader  {
                                       
                     
                 } else  {
-                    if (this.currentOrders.safetyOrder && !this.partialllyFilled && ( (CONFIG.type == "LONG" && obj.p <= this.currentOrders.safetyOrder.price) || (CONFIG.type == "SHORT" && obj.p >= this.currentOrders.safetyOrder.price)) && !this.processingSafetyOrder) {
+                    if (this.currentOrders.safetyOrder && ( (CONFIG.type == "LONG" && obj.p <= this.currentOrders.safetyOrder.price) || (CONFIG.type == "SHORT" && obj.p >= this.currentOrders.safetyOrder.price)) && !this.processingSafetyOrder) {
                         if (this.safetyStep < CONFIG.numSafetyOrders) {
 
                             this.processingSafetyOrder = true;                        
@@ -185,29 +184,34 @@ module.exports = class Trader  {
                     }
                     else if (this.currentOrders.targetOrder && ( (CONFIG.type == "LONG" && obj.p >= this.currentOrders.targetOrder.price) || (CONFIG.type == "SHORT" && obj.p <= this.currentOrders.targetOrder.price) ) ) {                        
                         let result = await this.exchange.getOrderInfo(CONFIG.symbolInfo, this.currentOrders.targetOrder.orderId);
-                        console.log(result)     
+                        console.log(result)      
                         if (result.status == "FILLED") {
                             this.tradeFinished = true;
-                            await this.exchange.cancelOrder(CONFIG.symbolInfo, this.currentOrders.safetyOrder.orderId) //cancels previous safety order
-                            this.onHold = false;
-                            this.ws.terminate() 
-                            this.ws = null;
-                            if (CONFIG.type == "LONG") {
-                                console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "", `SOLD ${this.amountIn} ${CONFIG.base} for ${result.cummulativeQuoteQty} (${((result.cummulativeQuoteQty/this.totalAllocated)-1)*100}%)  [price: ${result.price}]`);
+                            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Order FULLY FILLED, will end current trader[price: ${result.price}]`);
+                            await this.exchange.cancelOrder(CONFIG.symbolInfo, this.currentOrders.safetyOrder.orderId) 
+                        }
+                        else {
+                            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Order PARTIALLY FILLED, will remain on order book[price: ${result.price}]`);
+                        }
+                                          
+                        //cancels previous safety order
+                        this.onHold = false;
+                        this.ws.terminate() 
+                        this.ws = null;
+                        if (CONFIG.type == "LONG") {
+                            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `SOLD ${result.executedQty} ${CONFIG.base} for ${result.cummulativeQuoteQty} (${((result.cummulativeQuoteQty/(result.executedQty * this.avgPrice))-1)*100}%)  [price: ${result.price}]`);
+                            if (result.status == "FILLED") 
                                 CONFIG.callback(parseFloat(result.cummulativeQuoteQty * CONFIG.feeDown * CONFIG.feeDown) - this.totalAllocated, CONFIG.symbol);
-                            }
-                            else if (CONFIG.type == "SHORT") {
-                                console.log("Total allocated", this.totalAllocated)
-                                console.log("Exec qty", result.executedQty)
-                                console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "", `BOUGHT ${result.executedQty} ${CONFIG.base} for ${result.cummulativeQuoteQty} (${((result.executedQty/this.totalAllocated)-1)*100}%)  [price: ${result.price}]`);
-                                console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "", `Price converted: (${(result.executedQty * CONFIG.feeDown * CONFIG.feeDown) * result.price} ${CONFIG.quote})`)
+                        }
+                        else if (CONFIG.type == "SHORT") {
+                            console.log("Total allocated", this.totalAllocated)
+                            console.log("Exec qty", result.executedQty)
+                            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `BOUGHT ${result.executedQty} ${CONFIG.base} for ${result.cummulativeQuoteQty} (${((result.executedQty/this.totalAllocated)-1)*100}%)  [price: ${result.price}]`);
+                            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Price converted: (${(result.executedQty * CONFIG.feeDown * CONFIG.feeDown) * result.price} ${CONFIG.quote})`)
+                            if (result.status == "FILLED") 
                                 CONFIG.callback(parseFloat(result.executedQty * CONFIG.feeDown * CONFIG.feeDown) - this.totalAllocated, CONFIG.symbol, );
-                            }
                         }
-                        else if (result.status = "PARTIALLY_FILLED") {
-                            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "", `Order partially filled, awaiting for full fills [price: ${result.price}]`);
-                            this.partialllyFilled = true;
-                        }
+                        
                     }
                 }
 

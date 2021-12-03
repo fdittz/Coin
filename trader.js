@@ -25,6 +25,7 @@ module.exports = class Trader  {
         this.currentOrders = {};
         this.onHold = false;
         this.totalAllocated = 0;
+        this.partialllyFilled = false;
     }
 
     setConfig() {
@@ -135,7 +136,7 @@ module.exports = class Trader  {
             var obj = JSON.parse(event.data);
             if (obj.e == "trade" && !this.tradeFinished) {
                 obj.p = parseFloat(obj.p)
-                if (!this.active) {
+                if (!this.active && !this.partialllyFilled) {
                     // setting main order;
                     this.active = true;                    
 
@@ -153,7 +154,7 @@ module.exports = class Trader  {
                                       
                     
                 } else  {
-                    if (this.currentOrders.safetyOrder && ( (CONFIG.type == "LONG" && obj.p <= this.currentOrders.safetyOrder.price) || (CONFIG.type == "SHORT" && obj.p >= this.currentOrders.safetyOrder.price)) && !this.processingSafetyOrder) {
+                    if (this.currentOrders.safetyOrder && !this.partialllyFilled && ( (CONFIG.type == "LONG" && obj.p <= this.currentOrders.safetyOrder.price) || (CONFIG.type == "SHORT" && obj.p >= this.currentOrders.safetyOrder.price)) && !this.processingSafetyOrder) {
                         if (this.safetyStep < CONFIG.numSafetyOrders) {
 
                             this.processingSafetyOrder = true;                        
@@ -182,29 +183,31 @@ module.exports = class Trader  {
                             console.log(getDate(),`[Safety Step ${this.safetyStep}] Out of safety orders, on hold: ${this.amountIn} ${CONFIG.symbol}, spent ${this.totalAllocated} with an average price of ${this.avgPrice}`);
                         }
                     }
-                    else if (this.currentOrders.targetOrder && ( (CONFIG.type == "LONG" && obj.p >= this.currentOrders.targetOrder.price) || (CONFIG.type == "SHORT" && obj.p <= this.currentOrders.targetOrder.price) ) ) {
-                        this.tradeFinished = true;
-                        let result = {}
-                        while (!result.hasOwnProperty(result.status) ||  result.status != 'FILLED') {
-                            result = await this.exchange.getOrderInfo(CONFIG.symbolInfo, this.currentOrders.targetOrder.orderId);
+                    else if (this.currentOrders.targetOrder && ( (CONFIG.type == "LONG" && obj.p >= this.currentOrders.targetOrder.price) || (CONFIG.type == "SHORT" && obj.p <= this.currentOrders.targetOrder.price) ) ) {                        
+                        let result = await this.exchange.getOrderInfo(CONFIG.symbolInfo, this.currentOrders.targetOrder.orderId);
+                        console.log(result)     
+                        if (result.status == "FILLED") {
+                            this.tradeFinished = true;
+                            await this.exchange.cancelOrder(CONFIG.symbolInfo, this.currentOrders.safetyOrder.orderId) //cancels previous safety order
+                            this.onHold = false;
+                            this.ws.terminate() 
+                            this.ws = null;
+                            if (CONFIG.type == "LONG") {
+                                console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "", `SOLD ${this.amountIn} ${CONFIG.base} for ${result.cummulativeQuoteQty} (${((result.cummulativeQuoteQty/this.totalAllocated)-1)*100}%)  [price: ${result.price}]`);
+                                CONFIG.callback(parseFloat(result.cummulativeQuoteQty * CONFIG.feeDown * CONFIG.feeDown) - this.totalAllocated, CONFIG.symbol);
+                            }
+                            else if (CONFIG.type == "SHORT") {
+                                console.log("Total allocated", this.totalAllocated)
+                                console.log("Exec qty", result.executedQty)
+                                console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "", `BOUGHT ${result.executedQty} ${CONFIG.base} for ${result.cummulativeQuoteQty} (${((result.executedQty/this.totalAllocated)-1)*100}%)  [price: ${result.price}]`);
+                                console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "", `Price converted: (${(result.executedQty * CONFIG.feeDown * CONFIG.feeDown) * result.price} ${CONFIG.quote})`)
+                                CONFIG.callback(parseFloat(result.executedQty * CONFIG.feeDown * CONFIG.feeDown) - this.totalAllocated, CONFIG.symbol, );
+                            }
                         }
-                        console.log(result)                        
-                        await this.exchange.cancelOrder(CONFIG.symbolInfo, this.currentOrders.safetyOrder.orderId) //cancels previous safety order
-                        this.onHold = false;
-                        this.ws.terminate() 
-                        this.ws = null;
-                        if (CONFIG.type == "LONG") {
-                            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "", `SOLD ${this.amountIn} ${CONFIG.base} for ${result.cummulativeQuoteQty} (${((result.cummulativeQuoteQty/this.totalAllocated)-1)*100}%)  [price: ${result.price}]`);
-                            CONFIG.callback(parseFloat(result.cummulativeQuoteQty * CONFIG.feeDown * CONFIG.feeDown) - this.totalAllocated, CONFIG.symbol);
+                        else if (result.status = "PARTIALLY_FILLED") {
+                            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "", `Order partially filled, awaiting for full fills [price: ${result.price}]`);
+                            this.partialllyFilled = true;
                         }
-                        else if (CONFIG.type == "SHORT") {
-                            console.log("Total allocated", this.totalAllocated)
-                            console.log("Exec qty", result.executedQty)
-                            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "", `BOUGHT ${result.executedQty} ${CONFIG.base} for ${result.cummulativeQuoteQty} (${((result.executedQty/this.totalAllocated)-1)*100}%)  [price: ${result.price}]`);
-                            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "", `Price converted: (${(result.executedQty * CONFIG.feeDown * CONFIG.feeDown) * result.price} ${CONFIG.quote})`)
-                            CONFIG.callback(parseFloat(result.executedQty * CONFIG.feeDown * CONFIG.feeDown) - this.totalAllocated, CONFIG.symbol, );
-                        }
-                        
                     }
                 }
 

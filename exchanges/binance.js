@@ -29,6 +29,7 @@ module.exports = class Binance {
             });
             return result.data;
         } catch (err) {
+            console.log("Error while performing:", data)
             console.log(err.response.data);
             return err;
         }

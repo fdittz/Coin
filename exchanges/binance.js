@@ -6,6 +6,9 @@ const auth = require('../keys/binancekey');
 
 module.exports = class Binance {
 
+    isMarketBuy = false;
+    isMarketSell = false;
+
     async privateCall(path, data = {}, method = 'GET') {
         if (!auth.apiKey || !auth.apiSecret)
             throw new Error('You need to fill your API KEY and SECRET KEY');
@@ -59,6 +62,9 @@ module.exports = class Binance {
     }
 
     async marketBuy(toSpend, price, symbolInfo) {
+        if (this.isMarketBuy)
+            return new Promise((resolve, reject) => reject("Already placing a market buy order"));
+        this.isMarketBuy = true;
         const minNotional = parseFloat(symbolInfo.filters.filter(item => item.filterType == 'MIN_NOTIONAL').map(item => item.minNotional)[0]);
         const priceSize = symbolInfo.filters.filter(item => item.filterType == 'PRICE_FILTER').map(item => item.minPrice)[0];
         const pricePrecision = priceSize.slice(priceSize.indexOf(".")).indexOf(1)
@@ -80,7 +86,8 @@ module.exports = class Binance {
             type:"MARKET",
             quantity: quantity,
         }
-        return this.privateCall("/v3/order",data,'POST').then(result => {            
+        return this.privateCall("/v3/order",data,'POST').then(result => {    
+            this.marketBuy = false;
             if (result.orderId)
                 return new Promise((resolve, reject) => resolve(this.convertNumbersToFloat(result)));
             return new Promise((resolve, reject) => resolve(result));
@@ -116,6 +123,9 @@ module.exports = class Binance {
     }
 
     async marketSell(toSell, price, symbolInfo) {
+        if (this.isMarketSell)
+            return new Promise((resolve, reject) => reject("Already placing a market sell order"));
+        this.isMarketSell = true;
         const minNotional = parseFloat(symbolInfo.filters.filter(item => item.filterType == 'MIN_NOTIONAL').map(item => item.minNotional)[0]);
         const priceSize = symbolInfo.filters.filter(item => item.filterType == 'PRICE_FILTER').map(item => item.minPrice)[0];
         const pricePrecision = priceSize.slice(priceSize.indexOf(".")).indexOf(1)
@@ -135,6 +145,7 @@ module.exports = class Binance {
             quantity: toSell,
         }
         return this.privateCall("/v3/order",data,'POST').then(result => {
+            this.isMarketSell = false;
             if (result.orderId)
                 return new Promise((resolve, reject) => resolve(this.convertNumbersToFloat(result)));
             return new Promise((resolve, reject) => resolve(result));

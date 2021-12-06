@@ -150,9 +150,9 @@ module.exports = class Trader  {
                     this.active = true;
                     try {
                         if (CONFIG.type == "LONG")
-                            await this.placeLongOrders(CONFIG.this.baseOrderSize, obj.p)
+                            await this.placeLongOrders(CONFIG.baseOrderSize, obj.p)
                         else if (CONFIG.type == "SHORT") {
-                            await this.placeShortOrders(CONFIG.this.baseOrderSize, obj.p)
+                            await this.placeShortOrders(CONFIG.baseOrderSize, obj.p)
                         }
                     }
                     catch(err) {

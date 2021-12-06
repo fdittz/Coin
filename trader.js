@@ -92,9 +92,10 @@ module.exports = class Trader  {
             this.amountIn  += baseOrder.executedQty;            
             this.avgPrice = ((this.totalAllocated * this.avgPrice) + (baseOrder.cummulativeQuoteQty * baseOrder.price)) / ((this.totalAllocated + baseOrder.cummulativeQuoteQty));                                
             this.totalAllocated += baseOrder.cummulativeQuoteQty;
-            if (this.safetyStep > 0)            
+            if (this.safetyStep > 0) {          
                 console.log(getDate(), `[Safety Step ${this.safetyStep}]`, `Triggered safety order at price ${this.safetyPrice} ${CONFIG.quote}, executed at  with ${baseOrder.price} ${CONFIG.quote} [diff: ${this.safetyPrice / baseOrder.price < 1 ? (1 - (this.safetyPrice/baseOrder.price)) : ((this.safetyPrice/baseOrder.price) - 1)}%]`);    
-
+            }
+            
             this.safetyPrice = baseOrder.price * (1 - CONFIG.deviation);
             this.targetPrice = this.avgPrice * (1 + CONFIG.targetProfit);
 

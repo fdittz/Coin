@@ -29,12 +29,24 @@ stdin.on( 'data', function( key ){
             halt = false 
         }
     }
+    if ( key === '\u0014') {
+        if (!halt) {
+            console.log(getDate(), "Trade Debug mode ON");
+            Object.keys(traders).forEach(key => {
+                traders[key].debug = true;
+            })
+        }
+        else {
+            console.log(getDate(), "Trade Debug mode OFF");
+            Object.keys(traders).forEach(key => {
+                traders[key].debug = false;
+            })
+        }
+    }
   // ctrl-c ( end of text )
 });
 var args = process.argv.slice(2);
-var base = args[0];
-var quote = args[1];
-var cfgfile = args[2]
+var cfgfile = args[0]
 var balance = 0;
 var traders = {};
 var halt = false;
@@ -53,6 +65,8 @@ catch(err) {
     process.exit()
 }
 
+const BASE = data.base;
+const QUOTE = data.quote;
 const FEE = data.fee;
 const TARGET_PROFIT = data.targetProfit
 const NUM_SAFETY_ORDERS = data.numSafetyOrders
@@ -61,6 +75,8 @@ const STEP_VOLUME_SCALING = data.stepVolumeScaling;
 const BASE_ORDER_SIZE = data.baseOrderSize;
 const SAFETY_ORDER_SIZE = data.safetyOrderSize;
 const DIRECTION = data.direction;
+const COMISSION_SYMBOL = data.comissionSymbol;
+const COMISSION_CURRENCY = data.comissionCurrency;
 
 async function init() {
     let markets = []
@@ -68,22 +84,22 @@ async function init() {
     console.log("Safety Orders:", NUM_SAFETY_ORDERS)
     console.log("Target Stop: ", TARGET_PROFIT);
     console.log("Type:", DIRECTION)
-    let totalQuoteNeeded = 0;
+    let totalAssetNeeded = 0;
     for (var i = 1; i < NUM_SAFETY_ORDERS + 1; i++) {
-        totalQuoteNeeded += SAFETY_ORDER_SIZE * (Math.pow(STEP_VOLUME_SCALING,i));
+        totalAssetNeeded += SAFETY_ORDER_SIZE * (Math.pow(STEP_VOLUME_SCALING,i));
     }
     if (DIRECTION == "LONG")
-        console.log("Total quote needed for all safety orders: ", totalQuoteNeeded, args[1])
+        console.log("Total quote needed for all safety orders: ", totalAssetNeeded, BASE)
     if (DIRECTION == "SHORT")
-        console.log("Total base needed for all safety orders: ", totalQuoteNeeded, args[0]);
+        console.log("Total base needed for all safety orders: ", totalAssetNeeded, QUOTE);
     while (true) {        
         markets = [args[0]+args[1]]
         markets.forEach(market => {
             if (!traders.hasOwnProperty(market) && !halt) {
                 traders[market] = new Trader();
                 traders[market].config = new Config(
-                    base,
-                    quote,
+                    BASE,
+                    QUOTE,
                     DIRECTION,
                     FEE,
                     BASE_ORDER_SIZE,
@@ -91,7 +107,9 @@ async function init() {
                     TARGET_PROFIT,
                     DEVIATION,
                     STEP_VOLUME_SCALING,
-                    changeBalance
+                    changeBalance,
+                    COMISSION_SYMBOL,
+                    COMISSION_CURRENCY
                 );
                 traders[market].init();
             }
@@ -100,7 +118,7 @@ async function init() {
                 process.exit();
             }
         })
-        await sleep(1000)
+        await sleep(1000);
     }
 }
 

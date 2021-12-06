@@ -8,10 +8,10 @@ module.exports = class Binance {
 
     async privateCall(path, data = {}, method = 'GET') {
         if (!auth.apiKey || !auth.apiSecret)
-            throw new Error('Preencha corretamente sua API KEY e SECRET KEY');
+            throw new Error('You need to fill your API KEY and SECRET KEY');
      
         const timestamp = Date.now();
-        const recvWindow = 60000;//máximo permitido, default 5000
+        const recvWindow = 60000; // max allowed, default 5000;
         
         const signature = crypto
             .createHmac('sha256', auth.apiSecret)
@@ -80,8 +80,7 @@ module.exports = class Binance {
             type:"MARKET",
             quantity: quantity,
         }
-        return this.privateCall("/v3/order",data,'POST').then(result => {
-            console.log(this.convertNumbersToFloat(result))
+        return this.privateCall("/v3/order",data,'POST').then(result => {            
             if (result.orderId)
                 return new Promise((resolve, reject) => resolve(this.convertNumbersToFloat(result)));
             return new Promise((resolve, reject) => resolve(result));

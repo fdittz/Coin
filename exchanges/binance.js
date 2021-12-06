@@ -60,20 +60,20 @@ module.exports = class Binance {
 
     async marketBuy(toSpend, price, symbolInfo) {
         const minNotional = parseFloat(symbolInfo.filters.filter(item => item.filterType == 'MIN_NOTIONAL').map(item => item.minNotional)[0]);
-        const priceSize = parseFloat(symbolInfo.filters.filter(item => item.filterType == 'PRICE_FILTER').map(item => item.minPrice)[0]);
-        const pricePrecisionMult = 1/priceSize;
-        const lotSize = parseFloat(symbolInfo.filters.filter(item => item.filterType == 'LOT_SIZE').map(item => item.minQty)[0]);
+        const priceSize = symbolInfo.filters.filter(item => item.filterType == 'PRICE_FILTER').map(item => item.minPrice)[0];
+        const pricePrecision = priceSize.slice(priceSize.indexOf(".")).indexOf(1)
+        const lotSize = symbolInfo.filters.filter(item => item.filterType == 'LOT_SIZE').map(item => item.minQty)[0];
         const lotStepSize = parseFloat(symbolInfo.filters.filter(item => item.filterType == 'LOT_SIZE').map(item => item.stepSize)[0]);
-        let lotPrecisionMult = 1/lotSize;
-        price = Math.floor(price * pricePrecisionMult) / pricePrecisionMult;
+        let lotPrecision = lotSize.slice(lotSize.indexOf(".")).indexOf(1)
+        price = price.toFixed(pricePrecision)
         if (toSpend < minNotional) {
             toSpend = minNotional;
         }
-        let quantity = parseFloat((toSpend/price).toFixed(symbolInfo.baseAssetPrecision));        
-        quantity = Math.ceil(quantity * lotPrecisionMult) / lotPrecisionMult;
-        if ( quantity * price < minNotional) {
-            quantity += lotStepSize;            
+        let quantity = parseFloat((toSpend/price).toFixed(lotPrecision));        
+        while ( quantity * price < minNotional) {
+            quantity = parseFloat(quantity) + lotStepSize;            
         }
+        quantity = parseFloat(quantity).toFixed(lotPrecision);
         let data = {
             symbol:symbolInfo.symbol,
             side:"buy",
@@ -81,6 +81,7 @@ module.exports = class Binance {
             quantity: quantity,
         }
         return this.privateCall("/v3/order",data,'POST').then(result => {
+            console.log(this.convertNumbersToFloat(result))
             if (result.orderId)
                 return new Promise((resolve, reject) => resolve(this.convertNumbersToFloat(result)));
             return new Promise((resolve, reject) => resolve(result));
@@ -89,16 +90,17 @@ module.exports = class Binance {
 
     async limitBuy(toSpend, price, symbolInfo) {
         const minNotional = parseFloat(symbolInfo.filters.filter(item => item.filterType == 'MIN_NOTIONAL').map(item => item.minNotional)[0]);
-        const priceSize = parseFloat(symbolInfo.filters.filter(item => item.filterType == 'PRICE_FILTER').map(item => item.minPrice)[0]);
-        const pricePrecisionMult = 1/priceSize;
-        const lotSize = parseFloat(symbolInfo.filters.filter(item => item.filterType == 'LOT_SIZE').map(item => item.minQty)[0]);
+        const priceSize = symbolInfo.filters.filter(item => item.filterType == 'PRICE_FILTER').map(item => item.minPrice)[0];
+        const pricePrecision = priceSize.slice(priceSize.indexOf(".")).indexOf(1)
+        const lotSize = symbolInfo.filters.filter(item => item.filterType == 'LOT_SIZE').map(item => item.minQty)[0];
         const lotStepSize = parseFloat(symbolInfo.filters.filter(item => item.filterType == 'LOT_SIZE').map(item => item.stepSize)[0]);
-        let lotPrecisionMult = 1/lotSize;
-        price = Math.floor(price * pricePrecisionMult) / pricePrecisionMult;        
-        let quantity = parseFloat((toSpend/price).toFixed(symbolInfo.baseAssetPrecision));        
-        quantity = Math.ceil(quantity * lotPrecisionMult) / lotPrecisionMult;
-        while ( quantity * price < minNotional) 
-            quantity += lotStepSize;
+        let lotPrecision = lotSize.slice(lotSize.indexOf(".")).indexOf(1)
+        price = price.toFixed(pricePrecision)     
+        let quantity = parseFloat((toSpend/price).toFixed(lotPrecision));         
+        while ( quantity * price < minNotional) {
+            quantity = parseFloat(quantity) + lotStepSize;            
+        }
+        quantity = parseFloat(quantity).toFixed(lotPrecision);
         let data = {
             symbol:symbolInfo.symbol,
             side:"buy",
@@ -116,16 +118,17 @@ module.exports = class Binance {
 
     async marketSell(toSell, price, symbolInfo) {
         const minNotional = parseFloat(symbolInfo.filters.filter(item => item.filterType == 'MIN_NOTIONAL').map(item => item.minNotional)[0]);
-        const priceSize = parseFloat(symbolInfo.filters.filter(item => item.filterType == 'PRICE_FILTER').map(item => item.minPrice)[0]);
-        const pricePrecisionMult = 1/priceSize;
-        const lotSize = parseFloat(symbolInfo.filters.filter(item => item.filterType == 'LOT_SIZE').map(item => item.minQty)[0]);
+        const priceSize = symbolInfo.filters.filter(item => item.filterType == 'PRICE_FILTER').map(item => item.minPrice)[0];
+        const pricePrecision = priceSize.slice(priceSize.indexOf(".")).indexOf(1)
+        const lotSize = symbolInfo.filters.filter(item => item.filterType == 'LOT_SIZE').map(item => item.minQty)[0];
         const lotStepSize = parseFloat(symbolInfo.filters.filter(item => item.filterType == 'LOT_SIZE').map(item => item.stepSize)[0]);
-        let lotPrecisionMult = 1/lotSize;
-        price = Math.floor(price * pricePrecisionMult) / pricePrecisionMult;
-        toSell = Math.ceil(toSell * lotPrecisionMult) / lotPrecisionMult;
+        let lotPrecision = lotSize.slice(lotSize.indexOf(".")).indexOf(1)
+        price = price.toFixed(pricePrecision)
+        toSell = toSell.toFixed(lotPrecision);
         while ( toSell * price < minNotional) {
-            toSell += lotStepSize;            
+            toSell = parseFloat(toSell) + lotStepSize;          
         }
+        toSell = parseFloat(toSell).toFixed(lotPrecision);
         let data = {
             symbol:symbolInfo.symbol,
             side:"sell",
@@ -140,12 +143,12 @@ module.exports = class Binance {
     }
     
     async limitSell(toSell, price, symbolInfo) {
-        const priceSize = parseFloat(symbolInfo.filters.filter(item => item.filterType == 'PRICE_FILTER').map(item => item.minPrice)[0]);
-        const pricePrecisionMult = 1/priceSize;
-        const lotSize = parseFloat(symbolInfo.filters.filter(item => item.filterType == 'LOT_SIZE').map(item => item.minQty)[0]);
-        let lotPrecisionMult = 1/lotSize;        
-        price = Math.floor(price * pricePrecisionMult) / pricePrecisionMult;
-        toSell = Math.ceil(toSell * lotPrecisionMult) / lotPrecisionMult;  
+        const priceSize = symbolInfo.filters.filter(item => item.filterType == 'PRICE_FILTER').map(item => item.minPrice)[0];
+        const pricePrecision = priceSize.slice(priceSize.indexOf(".")).indexOf(1)
+        const lotSize = symbolInfo.filters.filter(item => item.filterType == 'LOT_SIZE').map(item => item.minQty)[0];
+        let lotPrecision = lotSize.slice(lotSize.indexOf(".")).indexOf(1)
+        price = price.toFixed(pricePrecision)
+        toSell = toSell.toFixed(lotPrecision);
         let data = {
             symbol:symbolInfo.symbol,
             side:"sell",
@@ -181,7 +184,11 @@ module.exports = class Binance {
             symbol:symbolInfo.symbol,
             orderId: orderId
         }
-        return this.privateCall("/v3/order", data, 'GET');
+        return this.privateCall("/v3/order", data, 'GET').then(result => {
+            if (result.orderId)
+                return new Promise((resolve, reject) => resolve(this.convertNumbersToFloat(result)));
+            return new Promise((resolve, reject) => resolve(result));
+        });
     }
 
     convertNumbersToFloat(order) {

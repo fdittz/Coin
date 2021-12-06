@@ -1,13 +1,13 @@
 {
     "base": "ETH",
-    "quote": "BRL",
+    "quote": "BUSD",
     "direction" : "LONG",
     "fee": 0.00075,
-    "baseOrderSize" : 20,
-    "numSafetyOrders" : 15,
-    "targetProfit" : 0.007,    
-    "deviation" : 0.015 ,
+    "baseOrderSize" : 15,
+    "numSafetyOrders" : 2,
+    "targetProfit" : 0.0001,    
+    "deviation" : 0.007 ,
     "stepVolumeScaling" : 1.05,
     "safetyOrderSize" : 20,
-    "name": "LONG-ETHBRL"
+    "name": "LONG-ETHBUSD"
 }

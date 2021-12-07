@@ -6,7 +6,7 @@
     "baseOrderSize" : 15,
     "numSafetyOrders" : 20,
     "targetProfit" : 0.005,    
-    "deviation" : 0.00001 ,
+    "deviation" : 0.01 ,
     "stepVolumeScaling" : 1.05,
     "safetyOrderSize" : 15,
     "name": "LONG-ETHBUSD",

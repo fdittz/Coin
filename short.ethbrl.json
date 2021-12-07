@@ -6,7 +6,7 @@
     "baseOrderSize" : 0.0010,
     "numSafetyOrders" : 20,
     "targetProfit" : 0.005,
-    "deviation" : 0.00001 ,
+    "deviation" : 0.001 ,
     "stepVolumeScaling" : 1.05,
     "safetyOrderSize" : 0.0010,
     "name": "SHORT-ETHBRL",

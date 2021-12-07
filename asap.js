@@ -96,7 +96,7 @@ async function init() {
     if (DIRECTION == "SHORT")
         console.log("Total base needed for all safety orders: ", totalAssetNeeded, BASE);
     while (true) {        
-        markets = [args[0]+args[1]]
+        markets = [BASE+QUOTE]
         markets.forEach(market => {
             if (!traders.hasOwnProperty(market) && !halt) {
                 traders[market] = new Trader();

@@ -92,9 +92,9 @@ async function init() {
         totalAssetNeeded += SAFETY_ORDER_SIZE * (Math.pow(STEP_VOLUME_SCALING,i));
     }
     if (DIRECTION == "LONG")
-        console.log("Total quote needed for all safety orders: ", totalAssetNeeded, BASE)
+        console.log("Total quote needed for all safety orders: ", totalAssetNeeded, QUOTE)
     if (DIRECTION == "SHORT")
-        console.log("Total base needed for all safety orders: ", totalAssetNeeded, QUOTE);
+        console.log("Total base needed for all safety orders: ", totalAssetNeeded, BASE);
     while (true) {        
         markets = [args[0]+args[1]]
         markets.forEach(market => {

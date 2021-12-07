@@ -145,25 +145,25 @@ module.exports = class Trader  {
         this.ws.onmessage = async (event) => {
             var obj = JSON.parse(event.data);
             if (obj.e == "trade" && this.lastBnbValue > 0 && !this.awaitingTrade) {
+                this.awaitingTrade = true;
                 obj.p = parseFloat(obj.p);
                 if (!this.active) {
                     this.active = true;
-                    if (!this.awaitingTrade) {
-                        this.awaitingTrade = true;
-                        try {
-                            if (CONFIG.type == "LONG")
-                                await this.placeLongOrder(CONFIG.baseOrderSize, obj.p)
-                            else if (CONFIG.type == "SHORT") {
-                                await this.placeShortOrder(CONFIG.baseOrderSize, obj.p)
-                            }
+                    
+                    try {
+                        if (CONFIG.type == "LONG")
+                            await this.placeLongOrder(CONFIG.baseOrderSize, obj.p)
+                        else if (CONFIG.type == "SHORT") {
+                            await this.placeShortOrder(CONFIG.baseOrderSize, obj.p)
                         }
-                        catch(err) {
-                            console.log("Err msg:", err);
-                            this.awaitingTrade = false;
-                            return;
-                        }
-                        this.awaitingTrade = false;
                     }
+                    catch(err) {
+                        console.log("Err msg:", err);
+                        this.awaitingTrade = false;
+                        return;
+                    }
+                    this.awaitingTrade = false;
+                    
                 } else  if (!this.awaitingTrade) {
                     if (this.safetyPrice && ( this.isPlaceLongSafetyOrder(obj.p) || this.isPlaceShortSafetyOrder(obj.p))) {                // Price has fallen (LONG) or risen(SHORT) beyond the defined % threshold, will place a safety market order
                         if (this.safetyStep < CONFIG.numSafetyOrders) {                                                                    // Still have safety orders available
@@ -171,27 +171,26 @@ module.exports = class Trader  {
                             console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Unable to reach current target, placing Safety Order at ${this.safetyPrice}`);
                             this.safetyStep++;                                                                                             // Advances safety order step
                             let nextStepStartQuantity = CONFIG.safetyOrderSize * Math.pow(CONFIG.volumeScaling, this.safetyStep - 1);      // Defines the quantity of base or quote order to be used on the next safety order (see user-defined configurations for scaling)
-                            if (!this.awaitingTrade) {
-                                this.awaitingTrade = true;
-                                try {
-                                    if (CONFIG.type == "LONG") {
-                                        await this.placeLongOrders(nextStepStartQuantity, obj.p);
-                                    }
-                                    else if (CONFIG.type == "SHORT") {
-                                        await this.placeShortOrders(nextStepStartQuantity, obj.p)
-                                    }
+                                                           
+                            try {
+                                if (CONFIG.type == "LONG") {
+                                    await this.placeLongOrder(nextStepStartQuantity, obj.p);
                                 }
-                                catch(err) {
-                                    console.log("Err msg:", err);
-                                    this.awaitingTrade = false;
-                                    return;
+                                else if (CONFIG.type == "SHORT") {
+                                    await this.placeShortOrder(nextStepStartQuantity, obj.p)
                                 }
                             }
-                            this.awaitingTrade = false;
-                                                                                                                     // Resumes the program's flow
+                            catch(err) {
+                                console.log("Err msg:", err);
+                                this.awaitingTrade = false;
+                                return;
+                            }
+                            
+                            this.awaitingTrade = false;                                                                                    // Resumes the program's flow
                         }
                         else if (!this.onHold) {                                                                                           // When out of safety orders, the bot will hold the last average price until it goes up again
                             this.onHold = true;
+                            this.awaitingTrade = false
                             console.log(getDate(),`[Safety Step ${this.safetyStep}] Out of safety orders, on hold: ${this.amountIn} ${CONFIG.symbol}, spent ${this.totalAllocated} with an average price of ${this.avgPrice}`);
                         }
                     }
@@ -199,17 +198,17 @@ module.exports = class Trader  {
                         this.pause = true;
                         let result = {};
 
-                        if (!this.awaitingTrade) {
-                            this.awaitingTrade = true;
-                            try {
-                                if (CONFIG.type == "LONG") 
-                                    result = await this.exchange.marketSell(this.amountIn,obj.p,CONFIG.symbolInfo);
-                                else if (CONFIG.type == "SHORT")
-                                    result = await this.exchange.marketBuy(this.amountIn,obj.p,CONFIG.symbolInfo);
-                            } catch(err) {
-                                console.log(err)
-                            }  
+                        try {
+                            if (CONFIG.type == "LONG") 
+                                result = await this.exchange.marketSell(this.amountIn,obj.p,CONFIG.symbolInfo);
+                            else if (CONFIG.type == "SHORT")
+                                result = await this.exchange.marketBuy(this.amountIn,obj.p,CONFIG.symbolInfo);
+                        } catch(err) {
+                            console.log(err)
+                            this.awaitingTrade = false
+                            return;
                         }
+                        
                         
                         if (result.orderId) {
                             result.price = result.cummulativeQuoteQty / result.executedQty;                                                           // Gets the actual price of the resulting take profit order
@@ -235,7 +234,7 @@ module.exports = class Trader  {
                                 CONFIG.callback(parseFloat(result.executedQty * CONFIG.feeDown * CONFIG.feeDown) - this.totalAllocated, CONFIG.symbol); //  Trade is finished, closes this trader
                             }                            
                         }
-                        this.awaitingTrade = false;                        
+                        this.awaitingTrade = false;
                     }
                 }
             }

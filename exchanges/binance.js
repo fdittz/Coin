@@ -87,7 +87,7 @@ module.exports = class Binance {
             quantity: quantity,
         }
         return this.privateCall("/v3/order",data,'POST').then(result => {    
-            this.marketBuy = false;
+            this.isMarketBuy = false;
             if (result.orderId)
                 return new Promise((resolve, reject) => resolve(this.convertNumbersToFloat(result)));
             return new Promise((resolve, reject) => resolve(result));

@@ -144,12 +144,11 @@ module.exports = class Trader  {
         this.ws = new WebSocket(url);
         this.ws.onmessage = async (event) => {
             var obj = JSON.parse(event.data);
-            if (obj.e == "trade" && this.lastBnbValue > 0 && !this.awaitingTrade) {
-                this.awaitingTrade = true;
+            if (obj.e == "trade" && this.lastBnbValue > 0 && !this.awaitingTrade) {                
                 obj.p = parseFloat(obj.p);
                 if (!this.active) {
                     this.active = true;
-                    
+                    this.awaitingTrade = true;                    
                     try {
                         if (CONFIG.type == "LONG")
                             await this.placeLongOrder(CONFIG.baseOrderSize, obj.p)
@@ -165,9 +164,9 @@ module.exports = class Trader  {
                     this.awaitingTrade = false;
                     
                 } else  if (!this.awaitingTrade) {
+                    this.awaitingTrade = true; // Sets this flag so no order is placed until the safety order creation is done  
                     if (this.safetyPrice && ( this.isPlaceLongSafetyOrder(obj.p) || this.isPlaceShortSafetyOrder(obj.p))) {                // Price has fallen (LONG) or risen(SHORT) beyond the defined % threshold, will place a safety market order
-                        if (this.safetyStep < CONFIG.numSafetyOrders) {                                                                    // Still have safety orders available
-                            this.pause = true;                                                                                             // Sets this flag so no order is placed until the safety order creation is done
+                        if (this.safetyStep < CONFIG.numSafetyOrders) {                                                                    // Still have safety orders available                                                                                                                    
                             console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Unable to reach current target, placing Safety Order at ${this.safetyPrice}`);
                             this.safetyStep++;                                                                                             // Advances safety order step
                             let nextStepStartQuantity = CONFIG.safetyOrderSize * Math.pow(CONFIG.volumeScaling, this.safetyStep - 1);      // Defines the quantity of base or quote order to be used on the next safety order (see user-defined configurations for scaling)
@@ -195,9 +194,8 @@ module.exports = class Trader  {
                         }
                     }
                     else if (this.targetPrice && ( this.isPlaceLongTakeProfitOrder(obj.p) || this.isPlaceShortTakeProfitOrder(obj.p) ) ) { // Price has risen (LONG) or fallen(SHORT) beyond the defined % threshold, will place a take profit market order
-                        this.pause = true;
-                        let result = {};
 
+                        let result = {};
                         try {
                             if (CONFIG.type == "LONG") 
                                 result = await this.exchange.marketSell(this.amountIn,obj.p,CONFIG.symbolInfo);
@@ -234,8 +232,8 @@ module.exports = class Trader  {
                                 CONFIG.callback(parseFloat(result.executedQty * CONFIG.feeDown * CONFIG.feeDown) - this.totalAllocated, CONFIG.symbol); //  Trade is finished, closes this trader
                             }                            
                         }
-                        this.awaitingTrade = false;
                     }
+                    this.awaitingTrade = false
                 }
             }
             else if (obj.e == "24hrTicker" && obj.s == CONFIG.commissionSymbol) {

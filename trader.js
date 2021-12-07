@@ -23,9 +23,9 @@ module.exports = class Trader  {
         this.totalAllocated = 0;    // Total currency already allocated
         this.safetyPrice = 0;       // Price used for placing the next Safety Order
         this.targetPrice = 0;       // Target price used for triggering the Take Profit Order
-        this.lastBnbValue = 0;      // Current BNB value in the user-defined currency, used to calculate comission
-        this.comission = 0;         // Total comission (in user-defined currency) paid
-        this.tradeFinished = false;
+        this.lastBnbValue = 0;      // Current BNB value in the user-defined currency, used to calculate commission
+        this.commission = 0;         // Total commission (in user-defined currency) paid
+        this.awaitingTrade = false;
     }
 
     setConfig() {
@@ -68,17 +68,17 @@ module.exports = class Trader  {
         return this.config.type == "SHORT" && price <= this.targetPrice
     }
 
-    async placeShortOrders(initialBase, currentPrice) {
+    async placeShortOrder(initialBase, currentPrice) {
         const CONFIG = this.config;
         try {
             this.baseOrder = await this.exchange.marketSell(initialBase, currentPrice, CONFIG.symbolInfo) // Placing market sell base order (SHORT operation)
             this.baseOrder.price = this.baseOrder.cummulativeQuoteQty / this.baseOrder.executedQty; // Getting the final market price of the resulting order
 
             if (this.debug)
-                console.log("Short Base Order", baseOrder);
-            
+                console.log("Short Base Order", this.baseOrder);            
+                
             if (this.baseOrder.fills) {
-                this.commission = this.baseOrder.fills.reduce((prev,current) =>  (prev + current.commission) * this.lastBnbValue, 0) // Gets the total comission paid
+                this.commission = this.baseOrder.fills.reduce((prev,current) =>  (prev + current.commission) * this.lastBnbValue, 0) // Gets the total commission paid
             }
 
             this.amountIn += this.baseOrder.cummulativeQuoteQty; // In a SHORT operation, this is the resulting sum of total quote asset acquired when selling the base asset
@@ -91,7 +91,7 @@ module.exports = class Trader  {
             this.safetyPrice = this.baseOrder.price * (1 + CONFIG.deviation); // Calculating the next safety price based on user definitions
             this.targetPrice = this.avgPrice * (1 - CONFIG.targetProfit); // Calculating the next target take profit price based on user definitions
 
-            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Sold ${this.baseOrder.executedQty} ${CONFIG.base} for ${this.baseOrder.cummulativeQuoteQty} ${CONFIG.quote} | comission: ${this.comission} ${CONFIG.comissionCurrency} [price: ${this.baseOrder.price}]`);
+            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Sold ${this.baseOrder.executedQty} ${CONFIG.base} for ${this.baseOrder.cummulativeQuoteQty} ${CONFIG.quote} | commission: ${this.commission} ${CONFIG.commissionCurrency} [price: ${this.baseOrder.price}]`);
             console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Holding ${this.amountIn} ${CONFIG.quote} at an avg. price of ${this.avgPrice} ${CONFIG.quote}, total spent ${this.totalAllocated} ${CONFIG.base}`);
             console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Target Take Profit Price: ${this.targetPrice} ${CONFIG.quote}`);
             console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Safety Order Price: ${this.safetyPrice}`);
@@ -102,7 +102,7 @@ module.exports = class Trader  {
         }
     }
 
-    async placeLongOrders(initialQuote, currentPrice) {
+    async placeLongOrder(initialQuote, currentPrice) {
         const CONFIG = this.config;
 
         try {
@@ -110,10 +110,10 @@ module.exports = class Trader  {
             this.baseOrder.price = this.baseOrder.cummulativeQuoteQty / this.baseOrder.executedQty; // Getting the final market price of the resulting order
 
             if (this.debug)
-                console.log("Long Base Order", baseOrder);
-            
+                console.log("Long Base Order", this.baseOrder);
+                
             if (this.baseOrder.fills) {
-                this.commission = this.baseOrder.fills.reduce((prev,current) =>  (prev + current.commission) * this.lastBnbValue, 0) // Gets the total comission paid
+                this.commission = this.baseOrder.fills.reduce((prev,current) =>  (prev + current.commission) * this.lastBnbValue, 0) // Gets the total commission paid
             }
 
             this.amountIn  += this.baseOrder.executedQty; // In a LONG operation, this is the resulting sum of total base asset acquired
@@ -126,7 +126,7 @@ module.exports = class Trader  {
             this.safetyPrice = this.baseOrder.price * (1 - CONFIG.deviation); // Calculating the next safety price based on user definitions
             this.targetPrice = this.avgPrice * (1 + CONFIG.targetProfit); // Calculating the next target take profit price based on user definitions
 
-            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Bought ${this.baseOrder.executedQty} ${CONFIG.base} with ${this.baseOrder.cummulativeQuoteQty} ${CONFIG.quote} | comission: ${this.comission} ${CONFIG.comissionCurrency} [price: ${this.baseOrder.price}]`);
+            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Bought ${this.baseOrder.executedQty} ${CONFIG.base} with ${this.baseOrder.cummulativeQuoteQty} ${CONFIG.quote} | commission: ${this.commission} ${CONFIG.commissionCurrency} [price: ${this.baseOrder.price}]`);
             console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Holding ${this.amountIn} ${CONFIG.base} at an avg. price of ${this.avgPrice} ${CONFIG.quote}, total spent ${this.totalAllocated} ${CONFIG.quote}`);
             console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Target Take Profit Price: ${this.targetPrice} ${CONFIG.quote}`);
             console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Safety Order Price: ${this.safetyPrice}`);
@@ -140,49 +140,57 @@ module.exports = class Trader  {
     async init() {
         const CONFIG = this.config;
         CONFIG.symbolInfo = await this.exchange.exchangeInfo(CONFIG.symbol);
-        var url = `wss://stream.binance.com:9443/ws/${CONFIG.symbol.toLowerCase()}@trade/${CONFIG.com}@ticker`;
+        var url = `wss://stream.binance.com:9443/ws/${CONFIG.symbol.toLowerCase()}@trade/${CONFIG.commissionSymbol.toLowerCase()}@ticker`;
         this.ws = new WebSocket(url);
         this.ws.onmessage = async (event) => {
             var obj = JSON.parse(event.data);
-            if (obj.e == "trade") {
+            if (obj.e == "trade" && this.lastBnbValue > 0 && !this.awaitingTrade) {
                 obj.p = parseFloat(obj.p);
-                if (!this.active && !this.tradeFinished) {
+                if (!this.active) {
                     this.active = true;
-                    try {
-                        if (CONFIG.type == "LONG")
-                            await this.placeLongOrders(CONFIG.baseOrderSize, obj.p)
-                        else if (CONFIG.type == "SHORT") {
-                            await this.placeShortOrders(CONFIG.baseOrderSize, obj.p)
+                    if (!this.awaitingTrade) {
+                        this.awaitingTrade = true;
+                        try {
+                            if (CONFIG.type == "LONG")
+                                await this.placeLongOrder(CONFIG.baseOrderSize, obj.p)
+                            else if (CONFIG.type == "SHORT") {
+                                await this.placeShortOrder(CONFIG.baseOrderSize, obj.p)
+                            }
                         }
+                        catch(err) {
+                            console.log("Err msg:", err);
+                            this.awaitingTrade = false;
+                            return;
+                        }
+                        this.awaitingTrade = false;
                     }
-                    catch(err) {
-                        console.log("Err msg:", err);
-                        return;
-                    }
-                } else  if (!this.pause && !this.tradeFinished) {
-                    if (this.safetyPrice && ( this.isPlaceLongSafetyOrder(obj.p) || this.isPlaceShortSafetyOrder(obj.p))) { // Price has fallen (LONG) or risen(SHORT) beyond the defined % threshold, will place a safety market order
-                        if (this.safetyStep < CONFIG.numSafetyOrders) { // Still have safety orders available
-                            this.pause = true; // Sets this flag so no order is placed until the safety order creation is done
+                } else  if (!this.awaitingTrade) {
+                    if (this.safetyPrice && ( this.isPlaceLongSafetyOrder(obj.p) || this.isPlaceShortSafetyOrder(obj.p))) {                // Price has fallen (LONG) or risen(SHORT) beyond the defined % threshold, will place a safety market order
+                        if (this.safetyStep < CONFIG.numSafetyOrders) {                                                                    // Still have safety orders available
+                            this.pause = true;                                                                                             // Sets this flag so no order is placed until the safety order creation is done
                             console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Unable to reach current target, placing Safety Order at ${this.safetyPrice}`);
-                            this.safetyStep++; // Advances safety order step
-                            let nextStepStartQuantity = CONFIG.safetyOrderSize * Math.pow(CONFIG.volumeScaling, this.safetyStep - 1); // Defines the quantity of base or quote order to be used on the next safety order (see user-defined configurations for scaling)
-
-                            try {
-                                if (CONFIG.type == "LONG") {
-                                    await this.placeLongOrders(nextStepStartQuantity, obj.p);
+                            this.safetyStep++;                                                                                             // Advances safety order step
+                            let nextStepStartQuantity = CONFIG.safetyOrderSize * Math.pow(CONFIG.volumeScaling, this.safetyStep - 1);      // Defines the quantity of base or quote order to be used on the next safety order (see user-defined configurations for scaling)
+                            if (!this.awaitingTrade) {
+                                this.awaitingTrade = true;
+                                try {
+                                    if (CONFIG.type == "LONG") {
+                                        await this.placeLongOrders(nextStepStartQuantity, obj.p);
+                                    }
+                                    else if (CONFIG.type == "SHORT") {
+                                        await this.placeShortOrders(nextStepStartQuantity, obj.p)
+                                    }
                                 }
-                                else if (CONFIG.type == "SHORT") {
-                                    await this.placeShortOrders(nextStepStartQuantity, obj.p)
+                                catch(err) {
+                                    console.log("Err msg:", err);
+                                    this.awaitingTrade = false;
+                                    return;
                                 }
                             }
-                            catch(err) {
-                                console.log("Err msg:", err);
-                                this.pause = false;
-                                return;
-                            }
-                            this.pause = false; // Resumes the program's flow
+                            this.awaitingTrade = false;
+                                                                                                                     // Resumes the program's flow
                         }
-                        else if (!this.onHold) { // When out of safety orders, the bot will hold the last average price until it goes up again
+                        else if (!this.onHold) {                                                                                           // When out of safety orders, the bot will hold the last average price until it goes up again
                             this.onHold = true;
                             console.log(getDate(),`[Safety Step ${this.safetyStep}] Out of safety orders, on hold: ${this.amountIn} ${CONFIG.symbol}, spent ${this.totalAllocated} with an average price of ${this.avgPrice}`);
                         }
@@ -190,33 +198,26 @@ module.exports = class Trader  {
                     else if (this.targetPrice && ( this.isPlaceLongTakeProfitOrder(obj.p) || this.isPlaceShortTakeProfitOrder(obj.p) ) ) { // Price has risen (LONG) or fallen(SHORT) beyond the defined % threshold, will place a take profit market order
                         this.pause = true;
                         let result = {};
-                        if (CONFIG.type == "LONG") {
-                            if (!this.tradeFinished) {
-                                this.tradeFinished = true;
-                                try {
+
+                        if (!this.awaitingTrade) {
+                            this.awaitingTrade = true;
+                            try {
+                                if (CONFIG.type == "LONG") 
                                     result = await this.exchange.marketSell(this.amountIn,obj.p,CONFIG.symbolInfo);
-                                } catch(err) {
-                                    console.log(err)
-                                }
-                            }
-                        }
-                        else if (CONFIG.type == "SHORT") {
-                            if (!this.tradeFinished) {
-                                this.tradeFinished = true;
-                                try {
+                                else if (CONFIG.type == "SHORT")
                                     result = await this.exchange.marketBuy(this.amountIn,obj.p,CONFIG.symbolInfo);
-                                } catch(err) {
-                                    console.log(err)
-                                }
-                            }
+                            } catch(err) {
+                                console.log(err)
+                            }  
                         }
+                        
                         if (result.orderId) {
-                            result.price = result.cummulativeQuoteQty / result.executedQty; // Gets the actual price of the resulting take profit order
+                            result.price = result.cummulativeQuoteQty / result.executedQty;                                                           // Gets the actual price of the resulting take profit order
                             if (this.debug)
                                 console.log("Take Profit Order Result", result);
 
                             if (this.baseOrder.fills) {
-                                this.commission = this.baseOrder.fills.reduce((prev,current) =>  (prev + current.commission) * this.lastBnbValue, 0); // Gets the total comission paid
+                                this.commission = this.baseOrder.fills.reduce((prev,current) =>  (prev + current.commission) * this.lastBnbValue, 0); // Gets the total commission paid
                             }
 
                             if (this.ws) { // Closes websocket connection
@@ -225,23 +226,21 @@ module.exports = class Trader  {
                             }
                             console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Triggered target order at price ${this.targetPrice} ${CONFIG.quote}, executed at  with ${result.price} ${CONFIG.quote} [diff: ${this.targetPrice / result.price < 1 ? (1 - (this.targetPrice/result.price))*100 : ((this.targetPrice/result.price) - 1)*100}%]`);
                             if (CONFIG.type == "LONG") {
-                                console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `SOLD ${result.executedQty} ${CONFIG.base} for ${result.cummulativeQuoteQty} (${((result.cummulativeQuoteQty/(result.executedQty * this.avgPrice))-1)*100}%) | comission: ${this.comission} ${CONFIG.comissionCurrency} [price: ${result.price}]`);
+                                console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `SOLD ${result.executedQty} ${CONFIG.base} for ${result.cummulativeQuoteQty} (${((result.cummulativeQuoteQty/(result.executedQty * this.avgPrice))-1)*100}%) | commission: ${this.commission} ${CONFIG.commissionCurrency} [price: ${result.price}]`);
                                 CONFIG.callback(parseFloat(result.cummulativeQuoteQty * CONFIG.feeDown * CONFIG.feeDown) - this.totalAllocated, CONFIG.symbol); //  Trade is finished, closes this trader
                             }
                             else if (CONFIG.type == "SHORT") {
-                                console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `BOUGHT ${result.executedQty} ${CONFIG.base} for ${result.cummulativeQuoteQty} (${((result.executedQty/this.totalAllocated)-1)*100}%) | comission: ${this.comission} ${CONFIG.comissionCurrency} [price: ${result.price}]`);
+                                console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `BOUGHT ${result.executedQty} ${CONFIG.base} for ${result.cummulativeQuoteQty} (${((result.executedQty/this.totalAllocated)-1)*100}%) | commission: ${this.commission} ${CONFIG.commissionCurrency} [price: ${result.price}]`);
                                 console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Price converted: (${(result.executedQty * CONFIG.feeDown * CONFIG.feeDown) * result.price} ${CONFIG.quote})`);
                                 CONFIG.callback(parseFloat(result.executedQty * CONFIG.feeDown * CONFIG.feeDown) - this.totalAllocated, CONFIG.symbol); //  Trade is finished, closes this trader
-                            }
+                            }                            
                         }
-                        else {
-                            this.tradeFinished = false;
-                        }
+                        this.awaitingTrade = false;                        
                     }
                 }
             }
-            else if (obj.e == "24hrTicker" && obj.s == "BNBBUSD") {
-                this.lastBnbValue = obj.c;
+            else if (obj.e == "24hrTicker" && obj.s == CONFIG.commissionSymbol) {
+                this.lastBnbValue = parseFloat(obj.c);
             }
         }
     }

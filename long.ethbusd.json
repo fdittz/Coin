@@ -3,13 +3,13 @@
     "quote": "BUSD",
     "direction" : "LONG",
     "fee": 0.00075,
-    "baseOrderSize" : 25,
-    "numSafetyOrders" : 2,
+    "baseOrderSize" : 15,
+    "numSafetyOrders" : 20,
     "targetProfit" : 0.005,    
     "deviation" : 0.01 ,
     "stepVolumeScaling" : 1.05,
-    "safetyOrderSize" : 20,
+    "safetyOrderSize" : 15,
     "name": "LONG-ETHBUSD",
-    "comissionSymbol": "BNBBUSD",
-    "comissionCurrency": "BUSD"
+    "commissionSymbol": "BNBBUSD",
+    "commissionCurrency": "BUSD"
 }

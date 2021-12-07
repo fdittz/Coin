@@ -2,7 +2,7 @@
 
 module.exports = class Config  {
 
-    constructor(base, quote, type, fee, baseOrderSize, numSafetyOrders, targetProfit, deviation, volumeScaling, callback, comissionSymbol, comissionCurrency) {
+    constructor(base, quote, type, fee, baseOrderSize, numSafetyOrders, targetProfit, deviation, volumeScaling, callback, commissionSymbol, commissionCurrency) {
         this.base = base;
         this.quote = quote;
         this.symbol = base + quote
@@ -18,8 +18,8 @@ module.exports = class Config  {
         this.callback = callback;
         this.symbolInfo = {};
         this.minNotional = 0;
-        this.comissionSymbol = comissionSymbol;
-        this.comissionCurrency = comissionCurrency;
+        this.commissionSymbol = commissionSymbol;
+        this.commissionCurrency = commissionCurrency;
     }
 
 }

@@ -29,15 +29,17 @@ stdin.on( 'data', function( key ){
             halt = false 
         }
     }
-    if ( key === '\u0014') {
-        if (!halt) {
+    if ( key === '\u0004') {
+        if (!debug) {
             console.log(getDate(), "Trade Debug mode ON");
+            debug = true;
             Object.keys(traders).forEach(key => {
                 traders[key].debug = true;
             })
         }
         else {
             console.log(getDate(), "Trade Debug mode OFF");
+            debug = false;
             Object.keys(traders).forEach(key => {
                 traders[key].debug = false;
             })
@@ -50,6 +52,7 @@ var cfgfile = args[0]
 var balance = 0;
 var traders = {};
 var halt = false;
+var debug = false;
 
 
 function sleep(ms) {
@@ -75,8 +78,8 @@ const STEP_VOLUME_SCALING = data.stepVolumeScaling;
 const BASE_ORDER_SIZE = data.baseOrderSize;
 const SAFETY_ORDER_SIZE = data.safetyOrderSize;
 const DIRECTION = data.direction;
-const COMISSION_SYMBOL = data.comissionSymbol;
-const COMISSION_CURRENCY = data.comissionCurrency;
+const COMMISSION_SYMBOL = data.commissionSymbol;
+const COMMISSION_CURRENCY = data.commissionCurrency;
 
 async function init() {
     let markets = []
@@ -108,8 +111,8 @@ async function init() {
                     DEVIATION,
                     STEP_VOLUME_SCALING,
                     changeBalance,
-                    COMISSION_SYMBOL,
-                    COMISSION_CURRENCY
+                    COMMISSION_SYMBOL,
+                    COMMISSION_CURRENCY
                 );
                 traders[market].init();
             }

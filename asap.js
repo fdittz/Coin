@@ -68,6 +68,7 @@ catch(err) {
     process.exit()
 }
 
+const NAME = data.name;
 const BASE = data.base;
 const QUOTE = data.quote;
 const FEE = data.fee;
@@ -99,7 +100,7 @@ async function init() {
         markets = [BASE+QUOTE]
         markets.forEach(market => {
             if (!traders.hasOwnProperty(market) && !halt) {
-                traders[market] = new Trader();
+                traders[market] = new Trader(NAME);
                 traders[market].config = new Config(
                     BASE,
                     QUOTE,

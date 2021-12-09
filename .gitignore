@@ -104,3 +104,4 @@ dist
 .tern-port
 
 binancekey.js
+saves/*.json

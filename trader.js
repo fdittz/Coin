@@ -2,14 +2,21 @@ const Config = require('./config.js')
 const WebSocket = require('ws');
 const CliProgress = require('cli-progress');
 const Exchange = require('./exchanges/binance');
-
+var keypress = require('keypress');
 const getDate = require('./util.js');
+const fs = require('fs');
+var keypress = require('keypress');
+keypress(process.stdin); 
+
+
+
 
 module.exports = class Trader  {
 
     exchange = new Exchange();
 
-    constructor() {
+    constructor(name) {
+        this.name = name;
         this.config = null;         // Trader parameteres
         this.active = false;        // Check if this trader is already active (used for placing the first order)
         this.pause = false;         // Simple flag for controlling the trading flow, halts operations until requests are completed
@@ -28,7 +35,22 @@ module.exports = class Trader  {
         this.commission = 0;         // Total commission (in user-defined currency) paid
         this.awaitingTrade = false;
         this.bar = null;
+        this.tradeFinished = false;
+
+        var self = this;
+        // listen for the "keypress" event
+        process.stdin.on('keypress', function (ch, key) {
+            console.log('got "keypress"', key);
+            if (key && key.ctrl && key.name == 'up')
+                self.increaseSafetyOrders();
+            else if (key && key.ctrl && key.name == 'down')
+                self.decreaseSafetyOrders();
+        });        
+        process.stdin.setRawMode(true);
+        process.stdin.resume();
+        process.stdin.setEncoding( 'utf8' );
     }
+    
 
     setConfig() {
         this.config = new Config()
@@ -204,14 +226,88 @@ module.exports = class Trader  {
         }
     }
 
-    async init() {
+    getTotalFundsNeeded() {
         const CONFIG = this.config;
+        let totalAssetNeeded = CONFIG.baseOrderSize;
+        for (var i = 1; i < CONFIG.numSafetyOrders + 1; i++) {
+            totalAssetNeeded += CONFIG.safetyOrderSize * (Math.pow(CONFIG.volumeScaling,i));
+        }
+        return totalAssetNeeded
+    }
+
+    async increaseSafetyOrders() {
+        const CONFIG = this.config;
+        CONFIG.numSafetyOrders++
+        console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Increasing the number of safety orders from ${CONFIG.numSafetyOrders-1} to ${CONFIG.numSafetyOrders}, new Total Asset needed: ${this.getTotalFundsNeeded()}`);
+        if (this.onHold)
+            this.onHold = false;
+    }
+
+    async decreaseSafetyOrders() {
+        const CONFIG = this.config;
+        console.log(CONFIG.numSafetyOrders)
+        if (this.safetyStep < CONFIG.numSafetyOrders) {
+            CONFIG.numSafetyOrders--;
+            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Decreasing the number of safety orders from ${CONFIG.numSafetyOrders+1} to ${CONFIG.numSafetyOrders}, new Total Asset needed: ${this.getTotalFundsNeeded()}`);            
+        }
+        else {
+            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Can't decrease the number of safety orders to a number below the active count`);            
+        }
+    }
+
+    stopBar() {
+        if (this.bar) {
+            this.bar.stop();
+            process.stdout.write("\r\x1b[K");
+        }
+    }
+
+    checkAndLoadData() {
+        var data = null
+        try {
+            data = JSON.parse(fs.readFileSync(`./saves/${this.name}.json`));
+        }
+        catch(err) {
+            console.log("No previous trader datafile found, starting from scratch");
+        }
+        if (data) {
+            Object.keys(data).forEach( prop => {
+                this[prop] = data[prop]
+            })
+            this.exchange = new Exchange();
+            console.log(this)
+        }
+    }
+
+    writeDataFile() {
+        try {
+            const result = fs.writeFileSync(`./saves/${this.name}.json`, JSON.stringify(this, null, 4))
+            //file written successfully
+          } catch (err) {
+            console.error(err)
+          }
+    }
+
+    eraseDataFile() {
+        try {
+            const result = fs.unlinkSync(`./saves/${this.name}.json`)
+            //file written successfully
+          } catch (err) {
+            console.error(err)
+          }
+    }
+
+    async init() {
+        var self = this;
+        const CONFIG = this.config;
+        this.checkAndLoadData();       
         CONFIG.symbolInfo = await this.exchange.exchangeInfo(CONFIG.symbol);
         var url = `wss://stream.binance.com:9443/ws/${CONFIG.symbol.toLowerCase()}@trade/${CONFIG.commissionSymbol.toLowerCase()}@ticker`;
         this.ws = new WebSocket(url);
         this.ws.onmessage = async (event) => {
             var obj = JSON.parse(event.data);
-            if (obj.e == "trade" && this.lastBnbValue > 0 && !this.awaitingTrade) {                
+            if (obj.e == "trade" && this.lastBnbValue > 0 && !this.awaitingTrade) {
+                this.writeDataFile();
                 obj.p = parseFloat(obj.p);
                 if (this.bar) {                    
                     this.updateBar(obj.p);
@@ -237,7 +333,7 @@ module.exports = class Trader  {
                     this.awaitingTrade = true; // Sets this flag so no order is placed until the safety order creation is done  
                     if (this.safetyPrice && ( this.isPlaceLongSafetyOrder(obj.p) || this.isPlaceShortSafetyOrder(obj.p))) {                // Price has fallen (LONG) or risen(SHORT) beyond the defined % threshold, will place a safety market order
                         if (this.safetyStep < CONFIG.numSafetyOrders) {                                                                    // Still have safety orders available                                                                                                                    
-                            process.stdout.write("\r\x1b[K")
+                            this.stopBar();
                             console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Unable to reach current target, placing Safety Order at ${this.safetyPrice}`);
                             this.safetyStep++;                                                                                             // Advances safety order step
                             let nextStepStartQuantity = CONFIG.safetyOrderSize * Math.pow(CONFIG.volumeScaling, this.safetyStep - 1);      // Defines the quantity of base or quote order to be used on the next safety order (see user-defined configurations for scaling)
@@ -278,22 +374,25 @@ module.exports = class Trader  {
                             return;
                         }
                         
-                        process.stdout.write("\r\x1b[K")
+                        this.stopBar();
                         if (result.orderId) {
                             result.price = result.cummulativeQuoteQty / result.executedQty;                                                           // Gets the actual price of the resulting take profit order
                             if (this.debug)
                                 console.log("Take Profit Order Result", result);
 
-                            if (this.baseOrder.fills) {
-                                this.commission = this.baseOrder.fills.reduce((prev,current) =>  (prev + current.commission) * this.lastBnbValue, 0); // Gets the total commission paid
+                            if (result.fills) {
+                                this.commission = result.fills.reduce((prev,current) =>  (prev + current.commission) * this.lastBnbValue, 0); // Gets the total commission paid
                             }
 
                             if (this.ws) { // Closes websocket connection
+                                this.tradeFinished = true;
                                 this.ws.terminate() 
                                 this.ws = null;
                             }
                             console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Triggered target order at price ${this.targetPrice} ${CONFIG.quote}, executed at  with ${result.price} ${CONFIG.quote} [diff: ${this.targetPrice / result.price < 1 ? (1 - (this.targetPrice/result.price))*100 : ((this.targetPrice/result.price) - 1)*100}%]`);
+                            this.eraseDataFile();
                             if (CONFIG.type == "LONG") {
+                                
                                 console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `SOLD ${result.executedQty} ${CONFIG.base} for ${result.cummulativeQuoteQty} (${((result.cummulativeQuoteQty/(result.executedQty * this.avgPrice))-1)*100}%) | commission: ${this.commission} ${CONFIG.commissionCurrency} [price: ${result.price}]`);
                                 CONFIG.callback(parseFloat(result.cummulativeQuoteQty * CONFIG.feeDown * CONFIG.feeDown) - this.totalAllocated, CONFIG.symbol); //  Trade is finished, closes this trader
                             }
@@ -309,6 +408,20 @@ module.exports = class Trader  {
             }
             else if (obj.e == "24hrTicker" && obj.s == CONFIG.commissionSymbol) {
                 this.lastBnbValue = parseFloat(obj.c);
+            }
+        }
+
+        this.ws.onerror = async (err) => {
+            console.log(err);
+            console.log(getDate(), `Websocket error, reconnecting...`);
+            self.ws = new WebSocket(url);
+        }
+
+        this.ws.onclose = async (err) => {
+            if (!this.tradeFinished) {
+                console.log(err);
+                console.log(getDate(), `Websocket closed, reconnecting...`);
+                self.ws = new WebSocket(url);
             }
         }
     }

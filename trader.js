@@ -40,7 +40,6 @@ module.exports = class Trader  {
         var self = this;
         // listen for the "keypress" event
         process.stdin.on('keypress', function (ch, key) {
-            console.log('got "keypress"', key);
             if (key && key.ctrl && key.name == 'up')
                 self.increaseSafetyOrders();
             else if (key && key.ctrl && key.name == 'down')

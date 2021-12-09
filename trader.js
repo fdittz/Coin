@@ -275,7 +275,6 @@ module.exports = class Trader  {
                 this[prop] = data[prop]
             })
             this.exchange = new Exchange();
-            console.log(this)
         }
     }
 

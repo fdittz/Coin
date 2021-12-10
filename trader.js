@@ -310,7 +310,6 @@ module.exports = class Trader  {
         this.checkAndLoadData();
         const CONFIG = this.config;       
         CONFIG.symbolInfo = await this.exchange.exchangeInfo(CONFIG.symbol);
-        console.log()
         var url = `wss://stream.binance.com:9443/ws/${CONFIG.symbol.toLowerCase()}@trade/${CONFIG.commissionSymbol.toLowerCase()}@ticker`;
         this.ws = new WebSocket(url);
         this.ws.onmessage = async (event) => {

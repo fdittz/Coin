@@ -282,9 +282,11 @@ module.exports = class Trader  {
         var data = {}
         if (this) {
             Object.keys(this).forEach( prop => {
-                data[prop] = this[prop]
+                if (!(prop.indexOf("_") == 0 && prop == "ws" ))
+                    data[prop] = this[prop]
             })
             data.ws = null;
+            data.bar = null;
         }
         try {
             const result = fs.writeFileSync(`./saves/${this.name}.json`, JSON.stringify(data, null, 4))

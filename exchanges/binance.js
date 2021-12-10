@@ -65,7 +65,6 @@ module.exports = class Binance {
         if (this.isMarketBuy)
             return new Promise((resolve, reject) => reject("Already placing a market buy order"));
         this.isMarketBuy = true;
-        console.log(symbolInfo)
         const minNotional = parseFloat(symbolInfo.filters.filter(item => item.filterType == 'MIN_NOTIONAL').map(item => item.minNotional)[0]);
         const priceSize = symbolInfo.filters.filter(item => item.filterType == 'PRICE_FILTER').map(item => item.minPrice)[0];
         const pricePrecision = priceSize.slice(priceSize.indexOf(".")).indexOf(1)

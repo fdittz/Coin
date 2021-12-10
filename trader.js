@@ -273,13 +273,21 @@ module.exports = class Trader  {
             Object.keys(data).forEach( prop => {
                 this[prop] = data[prop]
             })
+            data.ws = null;
             this.exchange = new Exchange();
         }
     }
 
     writeDataFile() {
+        var data = {}
+        if (this) {
+            Object.keys(this).forEach( prop => {
+                data[prop] = this[prop]
+            })
+            data.ws = null;
+        }
         try {
-            const result = fs.writeFileSync(`./saves/${this.name}.json`, JSON.stringify(this, null, 4))
+            const result = fs.writeFileSync(`./saves/${this.name}.json`, JSON.stringify(data, null, 4))
             //file written successfully
           } catch (err) {
             console.error(err)
@@ -297,9 +305,10 @@ module.exports = class Trader  {
 
     async init() {
         var self = this;
-        const CONFIG = this.config;
-        this.checkAndLoadData();       
+        this.checkAndLoadData();
+        const CONFIG = this.config;       
         CONFIG.symbolInfo = await this.exchange.exchangeInfo(CONFIG.symbol);
+        console.log()
         var url = `wss://stream.binance.com:9443/ws/${CONFIG.symbol.toLowerCase()}@trade/${CONFIG.commissionSymbol.toLowerCase()}@ticker`;
         this.ws = new WebSocket(url);
         this.ws.onmessage = async (event) => {

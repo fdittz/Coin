@@ -94,6 +94,25 @@ module.exports = class Binance {
         });
     }
 
+
+    async marketBuyBase(quantity, symbolInfo) {
+        if (this.isMarketBuy)
+            return new Promise((resolve, reject) => reject("Already placing a market buy order"));
+        this.isMarketBuy = true;
+        let data = {
+            symbol:symbolInfo.symbol,
+            side:"buy",
+            type:"MARKET",
+            quantity: quantity,
+        }
+        return this.privateCall("/v3/order",data,'POST').then(result => {    
+            this.isMarketBuy = false;
+            if (result.orderId)
+                return new Promise((resolve, reject) => resolve(this.convertNumbersToFloat(result)));
+            return new Promise((resolve, reject) => resolve(result));
+        });
+    }
+
     async limitBuy(toSpend, price, symbolInfo) {
         const minNotional = parseFloat(symbolInfo.filters.filter(item => item.filterType == 'MIN_NOTIONAL').map(item => item.minNotional)[0]);
         const priceSize = symbolInfo.filters.filter(item => item.filterType == 'PRICE_FILTER').map(item => item.minPrice)[0];

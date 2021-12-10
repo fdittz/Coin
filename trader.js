@@ -70,7 +70,7 @@ module.exports = class Trader  {
      * @return true or false
      */
     isPlaceShortSafetyOrder(price) {
-        return this.config.type == "SHORT" && price >= this.safetyPrice
+        return (this.config.type == "SHORT" || this.config.type == "SHORT-QUOTE") && price >= this.safetyPrice
     }
 
     /**
@@ -88,11 +88,11 @@ module.exports = class Trader  {
      * @return true or false
      */
     isPlaceShortTakeProfitOrder(price) {
-        return this.config.type == "SHORT" && price <= this.targetPrice
+        return (this.config.type == "SHORT" || this.config.type == "SHORT-QUOTE") && price <= this.targetPrice
     }
 
     updateBar(price) {
-        if (this.config.type == "SHORT") {
+        if (this.config.type == "SHORT" || this.config.type == "SHORT-QUOTE") {
             this.bar.update(price - this.targetPrice);
             return price - this.targetPrice;
         }
@@ -100,6 +100,148 @@ module.exports = class Trader  {
             this.bar.update(price - this.safetyPrice);
             return price - this.safetyPrice;
         }
+    }
+
+    getTotalFundsNeeded() {
+        const CONFIG = this.config;
+        let totalAssetNeeded = CONFIG.baseOrderSize;
+        for (var i = 1; i < CONFIG.numSafetyOrders + 1; i++) {
+            totalAssetNeeded += CONFIG.safetyOrderSize * (Math.pow(CONFIG.volumeScaling,i));
+        }
+        return totalAssetNeeded
+    }
+
+    async increaseSafetyOrders() {
+        const CONFIG = this.config;
+        CONFIG.numSafetyOrders++
+        console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Increasing the number of safety orders from ${CONFIG.numSafetyOrders-1} to ${CONFIG.numSafetyOrders}, new Total Asset needed: ${this.getTotalFundsNeeded()}`);
+        if (this.onHold)
+            this.onHold = false;
+    }
+
+    async decreaseSafetyOrders() {
+        const CONFIG = this.config;
+        console.log(CONFIG.numSafetyOrders)
+        if (this.safetyStep < CONFIG.numSafetyOrders) {
+            CONFIG.numSafetyOrders--;
+            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Decreasing the number of safety orders from ${CONFIG.numSafetyOrders+1} to ${CONFIG.numSafetyOrders}, new Total Asset needed: ${this.getTotalFundsNeeded()}`);            
+        }
+        else {
+            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Can't decrease the number of safety orders to a number below the active count`);            
+        }
+    }
+
+    initLongBar() {
+        var self = this
+        this.bar = new CliProgress.SingleBar({
+            format: `Last: \x1b[33m{value}\x1b[0m | \x1b[33m{percentage}%\x1b[0m >> \x1b[31m${this.safetyPrice}\x1b[0m {bar} \x1b[32m${this.targetPrice}\x1b[0m`,
+            formatValue: function(v, options, type) {
+                if (options.autopadding !== true){
+                    if (type == 'percentage')
+                        return v;
+                    else
+                        return self.safetyPrice + v
+                }
+                function autopadding(value, length){
+                    return (options.autopaddingChar + value).slice(-length);
+                }                
+                switch (type){
+                    case 'percentage':
+                        return autopadding(v, 3);
+            
+                    default: 
+                        return v;
+                }
+            },
+        }, CliProgress.Presets.shades_classic);
+        let range = (this.targetPrice - this.safetyPrice);
+        this.bar.start(range,0);
+    }
+
+    initShortBar() {
+        var self = this
+        this.bar = new CliProgress.SingleBar({
+            format: `Last: \x1b[33m{value}\x1b[0m | \x1b[33m{percentage}%\x1b[0m >> \x1b[31m${this.safetyPrice}\x1b[0m {bar} \x1b[32m${this.targetPrice}\x1b[0m`,
+            formatValue: function(v, options, type) {
+                if (options.autopadding !== true){
+                    if (type == 'percentage')
+                        return v;
+                    else
+                        return self.targetPrice + v
+                }
+                function autopadding(value, length){
+                    return (options.autopaddingChar + value).slice(-length);
+                }
+                switch (type){
+                    case 'percentage':
+                        return autopadding(v, 3);
+            
+                    default: 
+                        return v;
+                }
+            },
+        }, CliProgress.Presets.shades_classic);
+        let range = (this.safetyPrice - this.targetPrice);
+        this.bar.start(range,0);
+    }
+
+    stopBar() {
+        if (this.bar) {
+            this.bar.stop();
+            process.stdout.write("\r\x1b[K");
+        }
+    }
+
+    checkAndLoadData() {
+        var data = null
+        try {
+            data = JSON.parse(fs.readFileSync(`./saves/${this.name}.json`));
+            console.log("Found previous trader datafile, starting where it stopped");            
+        }
+        catch(err) {
+            console.log("No previous trader datafile found, starting from scratch");
+        }
+        if (data) {
+            Object.keys(data).forEach( prop => {
+                this[prop] = data[prop]
+            })
+            data.ws = null;
+            this.exchange = new Exchange();
+            const CONFIG = this.config;
+            if (CONFIG.type == "LONG") {
+                this.initLongBar();
+            }
+            else if (CONFIG.type == "SHORT" || CONFIG.type == "SHORT-QUOTE") {
+                this.initShortBar();
+            }
+        }
+    }
+
+    writeDataFile() {
+        var data = {}
+        if (this) {
+            Object.keys(this).forEach( prop => {
+                if (!(prop.indexOf("_") == 0 && prop == "ws" ))
+                    data[prop] = this[prop]
+            })
+            data.ws = null;
+            data.bar = null;
+        }
+        try {
+            const result = fs.writeFileSync(`./saves/${this.name}.json`, JSON.stringify(data, null, 4))
+            //file written successfully
+          } catch (err) {
+            console.error(err)
+          }
+    }
+
+    eraseDataFile() {
+        try {
+            const result = fs.unlinkSync(`./saves/${this.name}.json`)
+            //file written successfully
+          } catch (err) {
+            console.error(err)
+          }
     }
 
     async placeShortOrder(initialBase, currentPrice) {
@@ -130,30 +272,45 @@ module.exports = class Trader  {
             console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Target Take Profit Price: ${this.targetPrice} ${CONFIG.quote}`);
             console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Safety Order Price: ${this.safetyPrice}`);
             
-            var self = this
-            this.bar = new CliProgress.SingleBar({
-                format: `Last: \x1b[33m{value}\x1b[0m | \x1b[33m{percentage}%\x1b[0m >> \x1b[31m${this.safetyPrice}\x1b[0m {bar} \x1b[32m${this.targetPrice}\x1b[0m`,
-                formatValue: function(v, options, type) {
-                    if (options.autopadding !== true){
-                        if (type == 'percentage')
-                            return v;
-                        else
-                            return self.targetPrice + v
-                    }
-                    function autopadding(value, length){
-                        return (options.autopaddingChar + value).slice(-length);
-                    }
-                    switch (type){
-                        case 'percentage':
-                            return autopadding(v, 3);
+            this.initShortBar()
+            if (this.currentPrice > 0)
+                this.updateBar(currentPrice);
+        }
+        catch (err) {
+            console.log(getDate(),"Error placing base order")
+            throw err;
+        }
+    }
+
+    async placeShortQuoteOrder(initialBase, currentPrice) {
+        const CONFIG = this.config;
+        try {
+            this.baseOrder = await this.exchange.marketSell(initialBase, currentPrice, CONFIG.symbolInfo) // Placing market sell base order (SHORT operation)
+            this.baseOrder.price = this.baseOrder.cummulativeQuoteQty / this.baseOrder.executedQty; // Getting the final market price of the resulting order
+
+            if (this.debug)
+                console.log("Short Base Order", this.baseOrder);            
                 
-                        default: 
-                            return v;
-                    }
-                },
-            }, CliProgress.Presets.shades_classic);
-            let range = (this.safetyPrice - this.targetPrice);
-            this.bar.start(range,0);
+            if (this.baseOrder.fills) {
+                this.commission = this.baseOrder.fills.reduce((prev,current) =>  (prev + current.commission) * this.lastBnbValue, 0) // Gets the total commission paid
+            }
+
+            this.amountIn += this.baseOrder.executedQty; // In this kind of SHORT operation we keep track of how much base we need to buy at a lower price (same amount we sold)
+            this.avgPrice = ((this.totalAllocated * this.avgPrice) + (this.baseOrder.cummulativeQuoteQty * this.baseOrder.price)) / ((this.totalAllocated + this.baseOrder.cummulativeQuoteQty)); //calculates the average price of all orders
+            this.totalAllocated += this.baseOrder.cummulativeQuoteQty; // Total quote asset already locked on this trade
+            if (this.safetyStep > 0) {
+                console.log(getDate(), `[Safety Step ${this.safetyStep}]`, `Triggered safety order at price ${this.safetyPrice} ${CONFIG.quote}, executed at  with ${this.baseOrder.price} ${CONFIG.quote} [diff: ${this.safetyPrice / this.baseOrder.price < 1 ? (1 - (this.safetyPrice/this.baseOrder.price)) : ((this.safetyPrice/this.baseOrder.price) - 1)}%]`);
+            }
+
+            this.safetyPrice = this.baseOrder.price * (1 + CONFIG.deviation); // Calculating the next safety price based on user definitions
+            this.targetPrice = this.avgPrice * (1 - CONFIG.targetProfit); // Calculating the next target take profit price based on user definitions
+
+            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Sold ${this.baseOrder.executedQty} ${CONFIG.base} for ${this.baseOrder.cummulativeQuoteQty} ${CONFIG.quote} | commission: ${this.commission} ${CONFIG.commissionCurrency} [price: ${this.baseOrder.price}]`);
+            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Waiting to buy ${this.amountIn} ${CONFIG.base} with a current avg. price of ${this.avgPrice} ${CONFIG.quote}, total quote earned ${this.totalAllocated} ${CONFIG.base}`);
+            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Target Take Profit Price: ${this.targetPrice} ${CONFIG.quote}`);
+            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Safety Order Price: ${this.safetyPrice}`);
+            
+            this.initShortBar()
             if (this.currentPrice > 0)
                 this.updateBar(currentPrice);
         }
@@ -192,30 +349,7 @@ module.exports = class Trader  {
             console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Target Take Profit Price: ${this.targetPrice} ${CONFIG.quote}`);
             console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Safety Order Price: ${this.safetyPrice}`);
 
-            var self = this
-            this.bar = new CliProgress.SingleBar({
-                format: `Last: \x1b[33m{value}\x1b[0m | \x1b[33m{percentage}%\x1b[0m >> \x1b[31m${this.safetyPrice}\x1b[0m {bar} \x1b[32m${this.targetPrice}\x1b[0m`,
-                formatValue: function(v, options, type) {
-                    if (options.autopadding !== true){
-                        if (type == 'percentage')
-                            return v;
-                        else
-                            return self.safetyPrice + v
-                    }
-                    function autopadding(value, length){
-                        return (options.autopaddingChar + value).slice(-length);
-                    }                
-                    switch (type){
-                        case 'percentage':
-                            return autopadding(v, 3);
-                
-                        default: 
-                            return v;
-                    }
-                },
-            }, CliProgress.Presets.shades_classic);
-            let range = (this.targetPrice - this.safetyPrice);
-            this.bar.start(range,0);
+            this.initLongBar();
             if (this.currentPrice > 0)
                 this.updateBar(currentPrice);
         }
@@ -225,148 +359,18 @@ module.exports = class Trader  {
         }
     }
 
-    getTotalFundsNeeded() {
-        const CONFIG = this.config;
-        let totalAssetNeeded = CONFIG.baseOrderSize;
-        for (var i = 1; i < CONFIG.numSafetyOrders + 1; i++) {
-            totalAssetNeeded += CONFIG.safetyOrderSize * (Math.pow(CONFIG.volumeScaling,i));
-        }
-        return totalAssetNeeded
-    }
-
-    async increaseSafetyOrders() {
-        const CONFIG = this.config;
-        CONFIG.numSafetyOrders++
-        console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Increasing the number of safety orders from ${CONFIG.numSafetyOrders-1} to ${CONFIG.numSafetyOrders}, new Total Asset needed: ${this.getTotalFundsNeeded()}`);
-        if (this.onHold)
-            this.onHold = false;
-    }
-
-    async decreaseSafetyOrders() {
-        const CONFIG = this.config;
-        console.log(CONFIG.numSafetyOrders)
-        if (this.safetyStep < CONFIG.numSafetyOrders) {
-            CONFIG.numSafetyOrders--;
-            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Decreasing the number of safety orders from ${CONFIG.numSafetyOrders+1} to ${CONFIG.numSafetyOrders}, new Total Asset needed: ${this.getTotalFundsNeeded()}`);            
-        }
-        else {
-            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Can't decrease the number of safety orders to a number below the active count`);            
-        }
-    }
-
-    stopBar() {
-        if (this.bar) {
-            this.bar.stop();
-            process.stdout.write("\r\x1b[K");
-        }
-    }
-
-    checkAndLoadData() {
-        var data = null
-        try {
-            data = JSON.parse(fs.readFileSync(`./saves/${this.name}.json`));
-            console.log("Found previous trader datafile, starting where it stopped");            
-        }
-        catch(err) {
-            console.log("No previous trader datafile found, starting from scratch");
-        }
-        if (data) {
-            Object.keys(data).forEach( prop => {
-                this[prop] = data[prop]
-            })
-            data.ws = null;
-            this.exchange = new Exchange();
-            var CONFIG = this.config;
-            if (CONFIG.type == "LONG") {
-                var self = this
-                this.bar = new CliProgress.SingleBar({
-                    format: `Last: \x1b[33m{value}\x1b[0m | \x1b[33m{percentage}%\x1b[0m >> \x1b[31m${this.safetyPrice}\x1b[0m {bar} \x1b[32m${this.targetPrice}\x1b[0m`,
-                    formatValue: function(v, options, type) {
-                        if (options.autopadding !== true){
-                            if (type == 'percentage')
-                                return v;
-                            else
-                                return self.safetyPrice + v
-                        }
-                        function autopadding(value, length){
-                            return (options.autopaddingChar + value).slice(-length);
-                        }                
-                        switch (type){
-                            case 'percentage':
-                                return autopadding(v, 3);
-                    
-                            default: 
-                                return v;
-                        }
-                    },
-                }, CliProgress.Presets.shades_classic);
-                let range = (this.targetPrice - this.safetyPrice);
-                this.bar.start(range,0);
-            }
-            else if (CONFIG.type == "SHORT") {
-                var self = this
-                this.bar = new CliProgress.SingleBar({
-                    format: `Last: \x1b[33m{value}\x1b[0m | \x1b[33m{percentage}%\x1b[0m >> \x1b[31m${this.safetyPrice}\x1b[0m {bar} \x1b[32m${this.targetPrice}\x1b[0m`,
-                    formatValue: function(v, options, type) {
-                        if (options.autopadding !== true){
-                            if (type == 'percentage')
-                                return v;
-                            else
-                                return self.targetPrice + v
-                        }
-                        function autopadding(value, length){
-                            return (options.autopaddingChar + value).slice(-length);
-                        }
-                        switch (type){
-                            case 'percentage':
-                                return autopadding(v, 3);
-                    
-                            default: 
-                                return v;
-                        }
-                    },
-                }, CliProgress.Presets.shades_classic);
-                let range = (this.safetyPrice - this.targetPrice);
-                this.bar.start(range,0);
-            }
-        }
-    }
-
-    writeDataFile() {
-        var data = {}
-        if (this) {
-            Object.keys(this).forEach( prop => {
-                if (!(prop.indexOf("_") == 0 && prop == "ws" ))
-                    data[prop] = this[prop]
-            })
-            data.ws = null;
-            data.bar = null;
-        }
-        try {
-            const result = fs.writeFileSync(`./saves/${this.name}.json`, JSON.stringify(data, null, 4))
-            //file written successfully
-          } catch (err) {
-            console.error(err)
-          }
-    }
-
-    eraseDataFile() {
-        try {
-            const result = fs.unlinkSync(`./saves/${this.name}.json`)
-            //file written successfully
-          } catch (err) {
-            console.error(err)
-          }
-    }
-
     async init() {
-        var self = this;
         this.checkAndLoadData();
         const CONFIG = this.config;       
         CONFIG.symbolInfo = await this.exchange.exchangeInfo(CONFIG.symbol);
         var url = `wss://stream.binance.com:9443/ws/${CONFIG.symbol.toLowerCase()}@trade/${CONFIG.commissionSymbol.toLowerCase()}@ticker`;
+        if (this.ws) { // Closes websocket connection
+            this.ws.terminate() 
+            this.ws = null;
+        }
         this.ws = new WebSocket(url);
         this.ws.onmessage = async (event) => {
+            const CONFIG = this.config;
             var obj = JSON.parse(event.data);
             if (obj.e == "trade" && this.lastBnbValue > 0 && !this.awaitingTrade) {
                 this.writeDataFile();
@@ -379,9 +383,12 @@ module.exports = class Trader  {
                     this.awaitingTrade = true;                    
                     try {
                         if (CONFIG.type == "LONG")
-                            await this.placeLongOrder(CONFIG.baseOrderSize, obj.p)
+                            await this.placeLongOrder(CONFIG.baseOrderSize, obj.p);
                         else if (CONFIG.type == "SHORT") {
-                            await this.placeShortOrder(CONFIG.baseOrderSize, obj.p)
+                            await this.placeShortOrder(CONFIG.baseOrderSize, obj.p);
+                        }
+                        else if (CONFIG.type == "SHORT-QUOTE") {
+                            await this.placeShortQuoteOrder(CONFIG.baseOrderSize, obj.p);
                         }
                     }
                     catch(err) {
@@ -392,7 +399,7 @@ module.exports = class Trader  {
                     this.awaitingTrade = false;
                     
                 } else  if (!this.awaitingTrade) {
-                    this.awaitingTrade = true; // Sets this flag so no order is placed until the safety order creation is done  
+                    this.awaitingTrade = true;                                                                                             // Sets this flag so no order is placed until the safety order creation is done  
                     if (this.safetyPrice && ( this.isPlaceLongSafetyOrder(obj.p) || this.isPlaceShortSafetyOrder(obj.p))) {                // Price has fallen (LONG) or risen(SHORT) beyond the defined % threshold, will place a safety market order
                         if (this.safetyStep < CONFIG.numSafetyOrders) {                                                                    // Still have safety orders available                                                                                                                    
                             this.stopBar();
@@ -405,7 +412,10 @@ module.exports = class Trader  {
                                     await this.placeLongOrder(nextStepStartQuantity, obj.p);
                                 }
                                 else if (CONFIG.type == "SHORT") {
-                                    await this.placeShortOrder(nextStepStartQuantity, obj.p)
+                                    await this.placeShortOrder(nextStepStartQuantity, obj.p);
+                                }
+                                else if (CONFIG.type == "SHORT-QUOTE") {
+                                    await this.placeShortQuoteOrder(nextStepStartQuantity, obj.p);
                                 }
                             }
                             catch(err) {
@@ -429,7 +439,9 @@ module.exports = class Trader  {
                             if (CONFIG.type == "LONG") 
                                 result = await this.exchange.marketSell(this.amountIn,obj.p,CONFIG.symbolInfo);
                             else if (CONFIG.type == "SHORT")
-                                result = await this.exchange.marketBuy(this.amountIn,obj.p,CONFIG.symbolInfo);
+                                result = await this.exchange.marketBuy(this.amountIn,obj.p,CONFIG.symbolInfo); 
+                            else if (CONFIG.type == "SHORT-QUOTE") 
+                                result = await this.exchange.marketBuyBase(this.amountIn,CONFIG.symbolInfo)
                         } catch(err) {
                             console.log(err)
                             this.awaitingTrade = false
@@ -455,13 +467,17 @@ module.exports = class Trader  {
                             this.eraseDataFile();
                             if (CONFIG.type == "LONG") {
                                 
-                                console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `SOLD ${result.executedQty} ${CONFIG.base} for ${result.cummulativeQuoteQty} (${((result.cummulativeQuoteQty/(result.executedQty * this.avgPrice))-1)*100}%) | commission: ${this.commission} ${CONFIG.commissionCurrency} [price: ${result.price}]`);
+                                console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `SOLD ${result.executedQty} ${CONFIG.base} for ${result.cummulativeQuoteQty} ${CONFIG.quote} (${((result.cummulativeQuoteQty/(result.executedQty * this.avgPrice))-1)*100}%) | commission: ${this.commission} ${CONFIG.commissionCurrency} [price: ${result.price}]`);
                                 CONFIG.callback(parseFloat(result.cummulativeQuoteQty * CONFIG.feeDown * CONFIG.feeDown) - this.totalAllocated, CONFIG.symbol); //  Trade is finished, closes this trader
                             }
                             else if (CONFIG.type == "SHORT") {
-                                console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `BOUGHT ${result.executedQty} ${CONFIG.base} for ${result.cummulativeQuoteQty} (${((result.executedQty/this.totalAllocated)-1)*100}%) | commission: ${this.commission} ${CONFIG.commissionCurrency} [price: ${result.price}]`);
+                                console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `BOUGHT ${result.executedQty} ${CONFIG.base} for ${result.cummulativeQuoteQty} ${CONFIG.quote} (${((result.executedQty/this.totalAllocated)-1)*100}%) | commission: ${this.commission} ${CONFIG.commissionCurrency} [price: ${result.price}]`);
                                 console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Price converted: (${(result.executedQty * CONFIG.feeDown * CONFIG.feeDown) * result.price} ${CONFIG.quote})`);
                                 CONFIG.callback(parseFloat(result.executedQty * CONFIG.feeDown * CONFIG.feeDown) - this.totalAllocated, CONFIG.symbol); //  Trade is finished, closes this trader
+                            }
+                            else if (CONFIG.type == "SHORT-QUOTE") {
+                                console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `BOUGHT ${result.executedQty} ${CONFIG.base} for ${result.cummulativeQuoteQty} ${CONFIG.quote} (${((this.totalAllocated/result.cummulativeQuoteQty)-1)*100}%) | commission: ${this.commission} ${CONFIG.commissionCurrency} [price: ${result.price}]`);
+                                CONFIG.callback(parseFloat(this.totalAllocated * CONFIG.feeDown * CONFIG.feeDown) - result.cummulativeQuoteQty, CONFIG.symbol); //  Trade is finished, closes this trader
                             }                            
                         }
                     }
@@ -471,19 +487,21 @@ module.exports = class Trader  {
             else if (obj.e == "24hrTicker" && obj.s == CONFIG.commissionSymbol) {
                 this.lastBnbValue = parseFloat(obj.c);
             }
-        }
+        };
 
         this.ws.onerror = async (err) => {
             console.log(err);
             console.log(getDate(), `Websocket error, reconnecting...`);
-            self.ws = new WebSocket(url);
+            this.init();
+            return;
         }
 
         this.ws.onclose = async (err) => {
             if (!this.tradeFinished) {
                 console.log(err);
                 console.log(getDate(), `Websocket closed, reconnecting...`);
-                self.ws = new WebSocket(url);
+                this.init();
+                return;
             }
         }
     }

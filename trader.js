@@ -265,6 +265,7 @@ module.exports = class Trader  {
         var data = null
         try {
             data = JSON.parse(fs.readFileSync(`./saves/${this.name}.json`));
+            console.log("Found previous trader datafile, starting where it stopped");            
         }
         catch(err) {
             console.log("No previous trader datafile found, starting from scratch");
@@ -275,6 +276,59 @@ module.exports = class Trader  {
             })
             data.ws = null;
             this.exchange = new Exchange();
+            var CONFIG = this.config;
+            if (CONFIG.type == "LONG") {
+                var self = this
+                this.bar = new CliProgress.SingleBar({
+                    format: `Last: \x1b[33m{value}\x1b[0m | \x1b[33m{percentage}%\x1b[0m >> \x1b[31m${this.safetyPrice}\x1b[0m {bar} \x1b[32m${this.targetPrice}\x1b[0m`,
+                    formatValue: function(v, options, type) {
+                        if (options.autopadding !== true){
+                            if (type == 'percentage')
+                                return v;
+                            else
+                                return self.safetyPrice + v
+                        }
+                        function autopadding(value, length){
+                            return (options.autopaddingChar + value).slice(-length);
+                        }                
+                        switch (type){
+                            case 'percentage':
+                                return autopadding(v, 3);
+                    
+                            default: 
+                                return v;
+                        }
+                    },
+                }, CliProgress.Presets.shades_classic);
+                let range = (this.targetPrice - this.safetyPrice);
+                this.bar.start(range,0);
+            }
+            else if (CONFIG.type == "SHORT") {
+                var self = this
+                this.bar = new CliProgress.SingleBar({
+                    format: `Last: \x1b[33m{value}\x1b[0m | \x1b[33m{percentage}%\x1b[0m >> \x1b[31m${this.safetyPrice}\x1b[0m {bar} \x1b[32m${this.targetPrice}\x1b[0m`,
+                    formatValue: function(v, options, type) {
+                        if (options.autopadding !== true){
+                            if (type == 'percentage')
+                                return v;
+                            else
+                                return self.targetPrice + v
+                        }
+                        function autopadding(value, length){
+                            return (options.autopaddingChar + value).slice(-length);
+                        }
+                        switch (type){
+                            case 'percentage':
+                                return autopadding(v, 3);
+                    
+                            default: 
+                                return v;
+                        }
+                    },
+                }, CliProgress.Presets.shades_classic);
+                let range = (this.safetyPrice - this.targetPrice);
+                this.bar.start(range,0);
+            }
         }
     }
 

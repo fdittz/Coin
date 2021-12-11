@@ -99,6 +99,12 @@ module.exports = class Binance {
         if (this.isMarketBuy)
             return new Promise((resolve, reject) => reject("Already placing a market buy order"));
         this.isMarketBuy = true;
+        const lotSize = symbolInfo.filters.filter(item => item.filterType == 'LOT_SIZE').map(item => item.minQty)[0];
+        const lotStepSize = parseFloat(symbolInfo.filters.filter(item => item.filterType == 'LOT_SIZE').map(item => item.stepSize)[0]);
+        const lotPrecisionMult = 1/lotSize;
+        const lotPrecision = lotSize.slice(lotSize.indexOf(".")).indexOf(1)
+        quantity = Math.round(quantity * lotPrecisionMult) / lotPrecisionMult;
+        quantity = quantity.toFixed(lotPrecision);
         let data = {
             symbol:symbolInfo.symbol,
             side:"buy",

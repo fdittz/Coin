@@ -167,7 +167,7 @@ module.exports = class Trader  {
                     if (type == 'percentage')
                         return v;
                     else
-                        return self.targetPrice + v
+                        return self.safetyPrice - v
                 }
                 function autopadding(value, length){
                     return (options.autopaddingChar + value).slice(-length);

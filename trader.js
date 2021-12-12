@@ -203,7 +203,8 @@ module.exports = class Trader  {
         }
         if (data) {
             Object.keys(data).forEach( prop => {
-                this[prop] = data[prop]
+                if (prop != "config")
+                    this[prop] = data[prop]
             })
             data.ws = null;
             this.exchange = new Exchange();
@@ -361,7 +362,7 @@ module.exports = class Trader  {
 
     async init() {
         this.checkAndLoadData();
-        const CONFIG = this.config;       
+        const CONFIG = this.config;  
         CONFIG.symbolInfo = await this.exchange.exchangeInfo(CONFIG.symbol);
         var url = `wss://stream.binance.com:9443/ws/${CONFIG.symbol.toLowerCase()}@trade/${CONFIG.commissionSymbol.toLowerCase()}@ticker`;
         if (this.ws) { // Closes websocket connection
@@ -465,8 +466,7 @@ module.exports = class Trader  {
                             }
                             console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Triggered target order at price ${this.targetPrice} ${CONFIG.quote}, executed at  with ${result.price} ${CONFIG.quote} [diff: ${this.targetPrice / result.price < 1 ? (1 - (this.targetPrice/result.price))*100 : ((this.targetPrice/result.price) - 1)*100}%]`);
                             this.eraseDataFile();
-                            if (CONFIG.type == "LONG") {
-                                
+                            if (CONFIG.type == "LONG") {                                
                                 console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `SOLD ${result.executedQty} ${CONFIG.base} for ${result.cummulativeQuoteQty} ${CONFIG.quote} (${((result.cummulativeQuoteQty/(result.executedQty * this.avgPrice))-1)*100}%) | commission: ${this.commission} ${CONFIG.commissionCurrency} [price: ${result.price}]`);
                                 CONFIG.callback(parseFloat(result.cummulativeQuoteQty * CONFIG.feeDown * CONFIG.feeDown) - this.totalAllocated, CONFIG.symbol); //  Trade is finished, closes this trader
                             }

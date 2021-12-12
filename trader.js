@@ -93,8 +93,8 @@ module.exports = class Trader  {
 
     updateBar(price) {
         if (this.config.type == "SHORT" || this.config.type == "SHORT-QUOTE") {
-            this.bar.update(price - this.targetPrice);
-            return price - this.targetPrice;
+            this.bar.update(this.safetyPrice - price);
+            return this.safetyPrice - price;
         }
         else if (this.config.type == "LONG") {
             this.bar.update(price - this.safetyPrice);

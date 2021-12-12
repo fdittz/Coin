@@ -94,7 +94,7 @@ async function init() {
     }
     if (DIRECTION == "LONG")
         console.log("Total quote needed for all safety orders: ", totalAssetNeeded, QUOTE)
-    if (DIRECTION == "SHORT")
+    if (DIRECTION == "SHORT" || DIRECTION == "SHORT-QUOTE")
         console.log("Total base needed for all safety orders: ", totalAssetNeeded, BASE);
     while (true) {        
         markets = [BASE+QUOTE]

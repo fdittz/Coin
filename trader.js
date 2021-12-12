@@ -203,8 +203,9 @@ module.exports = class Trader  {
         }
         if (data) {
             Object.keys(data).forEach( prop => {
-                if (prop != "config")
+                if (prop != "config") {
                     this[prop] = data[prop]
+                }
             })
             data.ws = null;
             this.exchange = new Exchange();
@@ -370,6 +371,7 @@ module.exports = class Trader  {
             this.ws = null;
         }
         this.ws = new WebSocket(url);
+        console.log(CONFIG)
         this.ws.onmessage = async (event) => {
             const CONFIG = this.config;
             var obj = JSON.parse(event.data);

@@ -188,7 +188,7 @@ module.exports = class Trader  {
     stopBar() {
         if (this.bar) {
             this.bar.stop();
-            process.stdout.write("\r\x1b[K");
+            //process.stdout.write("\r\x1b[K");
         }
     }
 
@@ -371,7 +371,6 @@ module.exports = class Trader  {
             this.ws = null;
         }
         this.ws = new WebSocket(url);
-        console.log(CONFIG)
         this.ws.onmessage = async (event) => {
             const CONFIG = this.config;
             var obj = JSON.parse(event.data);

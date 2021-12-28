@@ -1,7 +1,7 @@
 const Config = require('./config.js')
 const WebSocket = require('ws');
 const CliProgress = require('cli-progress');
-const Exchange = require('./exchanges/binance');
+const Exchange = require('./exchanges/simulation');
 var keypress = require('keypress');
 const getDate = require('./util.js');
 const fs = require('fs');
@@ -134,7 +134,7 @@ module.exports = class Trader  {
     initLongBar() {
         var self = this
         this.bar = new CliProgress.SingleBar({
-            format: `Last: \x1b[33m{value}\x1b[0m | \x1b[33m{percentage}%\x1b[0m >> \x1b[31m${this.safetyPrice}\x1b[0m {bar} \x1b[32m${this.targetPrice}\x1b[0m`,
+            format: `${getDate()} Last: \x1b[33m{value}\x1b[0m | \x1b[33m{percentage}%\x1b[0m >> \x1b[31m${this.safetyPrice}\x1b[0m {bar} \x1b[32m${this.targetPrice}\x1b[0m`,
             formatValue: function(v, options, type) {
                 if (options.autopadding !== true){
                     if (type == 'percentage')
@@ -249,7 +249,7 @@ module.exports = class Trader  {
     async placeShortOrder(initialBase, currentPrice) {
         const CONFIG = this.config;
         try {
-            this.baseOrder = await this.exchange.marketSell(initialBase, currentPrice, CONFIG.symbolInfo) // Placing market sell base order (SHORT operation)
+            this.baseOrder = await this.exchange.marketSell(initialBase, currentPrice, CONFIG.symbolInfo, this.lastBnbValue) // Placing market sell base order (SHORT operation)
             this.baseOrder.price = this.baseOrder.cummulativeQuoteQty / this.baseOrder.executedQty; // Getting the final market price of the resulting order
 
             if (this.debug)
@@ -287,7 +287,7 @@ module.exports = class Trader  {
     async placeShortQuoteOrder(initialBase, currentPrice) {
         const CONFIG = this.config;
         try {
-            this.baseOrder = await this.exchange.marketSell(initialBase, currentPrice, CONFIG.symbolInfo) // Placing market sell base order (SHORT operation)
+            this.baseOrder = await this.exchange.marketSell(initialBase, currentPrice, CONFIG.symbolInfo, this.lastBnbValue) // Placing market sell base order (SHORT operation)
             this.baseOrder.price = this.baseOrder.cummulativeQuoteQty / this.baseOrder.executedQty; // Getting the final market price of the resulting order
 
             if (this.debug)
@@ -326,7 +326,7 @@ module.exports = class Trader  {
         const CONFIG = this.config;
 
         try {
-            this.baseOrder = await this.exchange.marketBuy(initialQuote, currentPrice, CONFIG.symbolInfo) // Placing market sell base order (LONG operation)
+            this.baseOrder = await this.exchange.marketBuy(initialQuote, currentPrice, CONFIG.symbolInfo, this.lastBnbValue) // Placing market sell base order (LONG operation)
             this.baseOrder.price = this.baseOrder.cummulativeQuoteQty / this.baseOrder.executedQty; // Getting the final market price of the resulting order
 
             if (this.debug)
@@ -439,11 +439,11 @@ module.exports = class Trader  {
                         let result = {};
                         try {
                             if (CONFIG.type == "LONG") 
-                                result = await this.exchange.marketSell(this.amountIn,obj.p,CONFIG.symbolInfo);
+                                result = await this.exchange.marketSell(this.amountIn,obj.p,CONFIG.symbolInfo, this.lastBnbValue);
                             else if (CONFIG.type == "SHORT")
-                                result = await this.exchange.marketBuy(this.amountIn,obj.p,CONFIG.symbolInfo); 
+                                result = await this.exchange.marketBuy(this.amountIn,obj.p,CONFIG.symbolInfo, this.lastBnbValue); 
                             else if (CONFIG.type == "SHORT-QUOTE") 
-                                result = await this.exchange.marketBuyBase(this.amountIn,CONFIG.symbolInfo)
+                                result = await this.exchange.marketBuyBase(this.amountIn,CONFIG.symbolInfo, obj.p, this.lastBnbValue)
                         } catch(err) {
                             console.log(err)
                             this.awaitingTrade = false
@@ -499,7 +499,6 @@ module.exports = class Trader  {
 
         this.ws.onclose = async (err) => {
             if (!this.tradeFinished) {
-                console.log(err);
                 console.log(getDate(), `Websocket closed, reconnecting...`);
                 this.init();
                 return;

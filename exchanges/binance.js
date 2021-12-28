@@ -61,7 +61,7 @@ module.exports = class Binance {
         });
     }
 
-    async marketBuy(toSpend, price, symbolInfo) {
+    async marketBuy(toSpend, price, symbolInfo, bnbValue) {
         if (this.isMarketBuy)
             return new Promise((resolve, reject) => reject("Already placing a market buy order"));
         this.isMarketBuy = true;
@@ -95,7 +95,7 @@ module.exports = class Binance {
     }
 
 
-    async marketBuyBase(quantity, symbolInfo) {
+    async marketBuyBase(quantity, symbolInfo, price, bnbValue) {
         if (this.isMarketBuy)
             return new Promise((resolve, reject) => reject("Already placing a market buy order"));
         this.isMarketBuy = true;
@@ -119,7 +119,7 @@ module.exports = class Binance {
         });
     }
 
-    async limitBuy(toSpend, price, symbolInfo) {
+    async limitBuy(toSpend, price, symbolInfo, bnbValue) {
         const minNotional = parseFloat(symbolInfo.filters.filter(item => item.filterType == 'MIN_NOTIONAL').map(item => item.minNotional)[0]);
         const priceSize = symbolInfo.filters.filter(item => item.filterType == 'PRICE_FILTER').map(item => item.minPrice)[0];
         const pricePrecision = priceSize.slice(priceSize.indexOf(".")).indexOf(1)
@@ -147,7 +147,7 @@ module.exports = class Binance {
         });;
     }
 
-    async marketSell(toSell, price, symbolInfo) {
+    async marketSell(toSell, price, symbolInfo, bnbValue) {
         if (this.isMarketSell)
             return new Promise((resolve, reject) => reject("Already placing a market sell order"));
         this.isMarketSell = true;
@@ -177,7 +177,7 @@ module.exports = class Binance {
         });
     }
     
-    async limitSell(toSell, price, symbolInfo) {
+    async limitSell(toSell, price, symbolInfo, bnbValue) {
         const priceSize = symbolInfo.filters.filter(item => item.filterType == 'PRICE_FILTER').map(item => item.minPrice)[0];
         const pricePrecision = priceSize.slice(priceSize.indexOf(".")).indexOf(1)
         const lotSize = symbolInfo.filters.filter(item => item.filterType == 'LOT_SIZE').map(item => item.minQty)[0];

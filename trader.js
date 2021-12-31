@@ -38,7 +38,7 @@ module.exports = class Trader  {
         this.bar = null;
         this.tradeFinished = false;
 
-        var self = this;
+        var self = this;q
         // listen for the "keypress" event
         process.stdin.on('keypress', function (ch, key) {
             if (key && key.ctrl && key.name == 'up')
@@ -48,7 +48,7 @@ module.exports = class Trader  {
         });        
         process.stdin.setRawMode(true);
         process.stdin.resume();
-        process.stdin.setEncoding( 'utf8' );
+        process.stdin.setEncoding( 'utf8' );        
         console.log(getDate(), `Using Exchange Hash: ${hash(this.exchange)}`)
         
     }
@@ -366,7 +366,6 @@ module.exports = class Trader  {
     async init() {
         this.checkAndLoadData();
         const CONFIG = this.config;  
-        console.log(this.exchange)
         CONFIG.symbolInfo = await this.exchange.exchangeInfo(CONFIG.symbol);
         var url = `wss://stream.binance.com:9443/ws/${CONFIG.symbol.toLowerCase()}@trade/${CONFIG.commissionSymbol.toLowerCase()}@ticker`;
         if (this.ws) { // Closes websocket connection
@@ -465,7 +464,7 @@ module.exports = class Trader  {
 
                             if (this.ws) { // Closes websocket connection
                                 this.tradeFinished = true;
-                                process.stdin.removeListener('keypress');
+                                process.stdin.removeAllListeners('keypress');
                                 this.ws.terminate() 
                                 this.ws = null;
                             }

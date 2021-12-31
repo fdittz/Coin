@@ -6,6 +6,7 @@ var keypress = require('keypress');
 const getDate = require('./util.js');
 const fs = require('fs');
 var keypress = require('keypress');
+var hash = require('object-hash');
 keypress(process.stdin); 
 
 
@@ -13,7 +14,7 @@ keypress(process.stdin);
 
 module.exports = class Trader  {
 
-    exchange = new Exchange();
+    exchange = null;
 
     constructor(name) {
         this.name = name;
@@ -48,6 +49,7 @@ module.exports = class Trader  {
         process.stdin.setRawMode(true);
         process.stdin.resume();
         process.stdin.setEncoding( 'utf8' );
+        console.log(getDate(), `Exchange object hash is ${hash(this.exchange)}`);
     }
     
 
@@ -208,7 +210,6 @@ module.exports = class Trader  {
                 }
             })
             data.ws = null;
-            this.exchange = new Exchange();
             const CONFIG = this.config;
             if (CONFIG.type == "LONG") {
                 this.initLongBar();
@@ -435,8 +436,8 @@ module.exports = class Trader  {
                         }
                     }
                     else if (this.targetPrice && ( this.isPlaceLongTakeProfitOrder(obj.p) || this.isPlaceShortTakeProfitOrder(obj.p) ) ) { // Price has risen (LONG) or fallen(SHORT) beyond the defined % threshold, will place a take profit market order
-                        
                         let result = {};
+                        this.awaitingTrade = true;
                         try {
                             if (CONFIG.type == "LONG") 
                                 result = await this.exchange.marketSell(this.amountIn,obj.p,CONFIG.symbolInfo, this.lastBnbValue);
@@ -462,6 +463,7 @@ module.exports = class Trader  {
 
                             if (this.ws) { // Closes websocket connection
                                 this.tradeFinished = true;
+                                process.stdin.removeListener('keypress');
                                 this.ws.terminate() 
                                 this.ws = null;
                             }
@@ -491,9 +493,11 @@ module.exports = class Trader  {
         };
 
         this.ws.onerror = async (err) => {
-            console.log(err);
-            console.log(getDate(), `Websocket error, reconnecting...`);
-            this.init();
+            if (!this.tradeFinished) {
+                console.log(err);
+                console.log(getDate(), `Websocket error, reconnecting...`);
+                this.init();
+            }
             return;
         }
 

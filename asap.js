@@ -1,7 +1,9 @@
 const Config = require('./config.js')
 const Trader = require('./trader.js')
 const getDate = require('./util.js');
+const Exchange = require('./exchanges/binance');
 const fs = require('fs');
+var hash = require('object-hash');
 
 
 var stdin = process.stdin;
@@ -53,6 +55,7 @@ var balance = 0;
 var traders = {};
 var halt = false;
 var debug = false;
+var exchange = new Exchange();
 
 
 function sleep(ms) {
@@ -115,6 +118,7 @@ async function init() {
                     COMMISSION_SYMBOL,
                     COMMISSION_CURRENCY
                 );
+                traders[market].exchange = exchange;
                 traders[market].init();
             }
             else if (!traders.hasOwnProperty(market) && halt) {
@@ -122,12 +126,15 @@ async function init() {
                 process.exit();
             }
         })
+        if (Object.keys(traders).length > 1) {
+            console.log(`WARNING, ${Object.keys(traders).length} traders running!`);
+        }
         await sleep(1000);
     }
 }
 
 function changeBalance(value, symbol) {
-    console.log(getDate(),`Removing trader ${symbol}`)
+    console.log(getDate(),`Removing trader ${symbol}: ${hash(traders[symbol])}`)
     traders[symbol] = null;
     delete traders[symbol];
     console.log(getDate(),`${Object.keys(traders).length} Traders now running: ${JSON.stringify(Object.keys(traders))}`)    

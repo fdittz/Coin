@@ -1,9 +1,7 @@
 const Config = require('./config.js')
 const Trader = require('./trader.js')
 const getDate = require('./util.js');
-const Exchange = require('./exchanges/binance');
 const fs = require('fs');
-var hash = require('object-hash');
 
 
 var stdin = process.stdin;
@@ -55,7 +53,6 @@ var balance = 0;
 var traders = {};
 var halt = false;
 var debug = false;
-var exchangeInstance = new Exchange();
 
 
 function sleep(ms) {
@@ -103,7 +100,7 @@ async function init() {
         markets = [BASE+QUOTE]
         markets.forEach(market => {
             if (!traders.hasOwnProperty(market) && !halt) {
-                traders[market] = new Trader(NAME, exchangeInstance);
+                traders[market] = new Trader(NAME);
                 traders[market].config = new Config(
                     BASE,
                     QUOTE,

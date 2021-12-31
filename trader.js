@@ -1,10 +1,10 @@
 const Config = require('./config.js')
 const WebSocket = require('ws');
 const CliProgress = require('cli-progress');
-const Exchange = require('./exchanges/binance');
 var keypress = require('keypress');
 const getDate = require('./util.js');
 const fs = require('fs');
+const Exchange = require('./exchanges/binance');
 var keypress = require('keypress');
 var hash = require('object-hash');
 keypress(process.stdin); 
@@ -14,9 +14,9 @@ keypress(process.stdin);
 
 module.exports = class Trader  {
 
+    exchange = new Exchange().getInstance();
 
-
-    constructor(name, exchangeInstance) {
+    constructor(name) {
         this.name = name;
         this.config = null;         // Trader parameteres
         this.active = false;        // Check if this trader is already active (used for placing the first order)
@@ -37,7 +37,6 @@ module.exports = class Trader  {
         this.awaitingTrade = false;
         this.bar = null;
         this.tradeFinished = false;
-        this.exchange = exchangeInstance;
 
         var self = this;
         // listen for the "keypress" event
@@ -50,7 +49,8 @@ module.exports = class Trader  {
         process.stdin.setRawMode(true);
         process.stdin.resume();
         process.stdin.setEncoding( 'utf8' );
-        console.log(getDate(), `Exchange object hash is ${hash(this.exchange)}`);
+        console.log(getDate(), `Using Exchange Hash: ${hash(this.exchange)}`)
+        
     }
     
 
@@ -206,7 +206,7 @@ module.exports = class Trader  {
         }
         if (data) {
             Object.keys(data).forEach( prop => {
-                if (prop != "config") {
+                if (prop != "config" && prop != "exchange") {
                     this[prop] = data[prop]
                 }
             })
@@ -366,6 +366,7 @@ module.exports = class Trader  {
     async init() {
         this.checkAndLoadData();
         const CONFIG = this.config;  
+        console.log(this.exchange)
         CONFIG.symbolInfo = await this.exchange.exchangeInfo(CONFIG.symbol);
         var url = `wss://stream.binance.com:9443/ws/${CONFIG.symbol.toLowerCase()}@trade/${CONFIG.commissionSymbol.toLowerCase()}@ticker`;
         if (this.ws) { // Closes websocket connection

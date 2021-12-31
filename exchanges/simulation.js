@@ -4,7 +4,7 @@ const querystring = require('querystring');
 const auth = require('../keys/binancekey');
 
 
-module.exports = class Binance {
+class Binance {
 
     async privateCall(path, data = {}, method = 'GET') {
         if (!auth.apiKey || !auth.apiSecret)
@@ -369,3 +369,18 @@ module.exports = class Binance {
 
 
 
+class Singleton {
+
+    constructor() {
+        if (!Singleton.instance) {
+            Singleton.instance = new Binance();
+        }
+    }
+  
+    getInstance() {
+        return Singleton.instance;
+    }
+  
+  }
+  
+  module.exports = Singleton;

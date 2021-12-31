@@ -55,7 +55,7 @@ var balance = 0;
 var traders = {};
 var halt = false;
 var debug = false;
-var exchange = new Exchange();
+var exchangeInstance = new Exchange();
 
 
 function sleep(ms) {
@@ -103,7 +103,7 @@ async function init() {
         markets = [BASE+QUOTE]
         markets.forEach(market => {
             if (!traders.hasOwnProperty(market) && !halt) {
-                traders[market] = new Trader(NAME);
+                traders[market] = new Trader(NAME, exchangeInstance);
                 traders[market].config = new Config(
                     BASE,
                     QUOTE,
@@ -118,7 +118,6 @@ async function init() {
                     COMMISSION_SYMBOL,
                     COMMISSION_CURRENCY
                 );
-                traders[market].exchange = exchange;
                 traders[market].init();
             }
             else if (!traders.hasOwnProperty(market) && halt) {

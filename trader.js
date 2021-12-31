@@ -14,9 +14,9 @@ keypress(process.stdin);
 
 module.exports = class Trader  {
 
-    exchange = null;
 
-    constructor(name) {
+
+    constructor(name, exchangeInstance) {
         this.name = name;
         this.config = null;         // Trader parameteres
         this.active = false;        // Check if this trader is already active (used for placing the first order)
@@ -37,6 +37,7 @@ module.exports = class Trader  {
         this.awaitingTrade = false;
         this.bar = null;
         this.tradeFinished = false;
+        this.exchange = exchangeInstance;
 
         var self = this;
         // listen for the "keypress" event

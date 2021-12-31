@@ -38,7 +38,7 @@ module.exports = class Trader  {
         this.bar = null;
         this.tradeFinished = false;
 
-        var self = this;q
+        var self = this;
         // listen for the "keypress" event
         process.stdin.on('keypress', function (ch, key) {
             if (key && key.ctrl && key.name == 'up')

@@ -2,6 +2,7 @@ const Config = require('./config.js')
 const Trader = require('./trader.js')
 const getDate = require('./util.js');
 const fs = require('fs');
+var hash = require('object-hash');
 
 
 var stdin = process.stdin;

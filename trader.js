@@ -469,6 +469,7 @@ module.exports = class Trader  {
                                 this.ws = null;
                             }
                             console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Triggered target order at price ${this.targetPrice} ${CONFIG.quote}, executed at  with ${result.price} ${CONFIG.quote} [diff: ${this.targetPrice / result.price < 1 ? (1 - (this.targetPrice/result.price))*100 : ((this.targetPrice/result.price) - 1)*100}%]`);
+                            console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `Trader hash: ${hash(this)}`);
                             this.eraseDataFile();
                             if (CONFIG.type == "LONG") {                                
                                 console.log(getDate(), this.safetyStep > 0 ? `[Safety Step ${this.safetyStep}]` : "[Base Order]", `SOLD ${result.executedQty} ${CONFIG.base} for ${result.cummulativeQuoteQty} ${CONFIG.quote} (${((result.cummulativeQuoteQty/(result.executedQty * this.avgPrice))-1)*100}%) | commission: ${this.commission} ${CONFIG.commissionCurrency} [price: ${result.price}]`);
@@ -496,6 +497,8 @@ module.exports = class Trader  {
         this.ws.onerror = async (err) => {
             if (!this.tradeFinished) {
                 console.log(err);
+                this.ws.terminate()
+                this.ws = null;
                 console.log(getDate(), `Websocket error, reconnecting...`);
                 this.init();
             }
@@ -504,6 +507,8 @@ module.exports = class Trader  {
 
         this.ws.onclose = async (err) => {
             if (!this.tradeFinished) {
+                this.ws.terminate()
+                this.ws = null;
                 console.log(getDate(), `Websocket closed, reconnecting...`);
                 this.init();
                 return;

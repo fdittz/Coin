@@ -96,6 +96,7 @@ async function createTrader() {
         COMMISSION_SYMBOL,
         COMMISSION_CURRENCY
     );
+    trader.init();
 }
 
 async function init() {

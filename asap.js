@@ -79,6 +79,7 @@ const COMMISSION_SYMBOL = data.commissionSymbol;
 const COMMISSION_CURRENCY = data.commissionCurrency;
 
 async function createTrader() {
+    await sleep(2500);
     trader = null;
     trader = new Trader(NAME);
     trader.config = new Config(
@@ -113,7 +114,7 @@ async function init() {
     createTrader();
 }
 
-function changeBalance(value, symbol) {
+async function changeBalance(value, symbol) {
     console.log(getDate(),`Removing trader ${symbol}: ${hash(trader)}`)
     trader = null;
     if (halt) {
@@ -122,8 +123,9 @@ function changeBalance(value, symbol) {
     }
     balance += value;
     console.log(getDate(),"Balance is now ", balance)
-    await sleep(5000);
+    await sleep(2500);
     createTrader();
+    return
 }
 
 init();

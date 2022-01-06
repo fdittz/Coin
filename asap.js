@@ -34,16 +34,12 @@ stdin.on( 'data', function( key ){
         if (!debug) {
             console.log(getDate(), "Trade Debug mode ON");
             debug = true;
-            Object.keys(traders).forEach(key => {
-                traders[key].debug = true;
-            })
+            trader.debug = true;
         }
         else {
             console.log(getDate(), "Trade Debug mode OFF");
             debug = false;
-            Object.keys(traders).forEach(key => {
-                traders[key].debug = false;
-            })
+            trader.debug = false;
         }
     }
   // ctrl-c ( end of text )
@@ -51,10 +47,9 @@ stdin.on( 'data', function( key ){
 var args = process.argv.slice(2);
 var cfgfile = args[0]
 var balance = 0;
-var traders = {};
 var halt = false;
 var debug = false;
-
+var trader = null;
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -83,8 +78,26 @@ const DIRECTION = data.direction;
 const COMMISSION_SYMBOL = data.commissionSymbol;
 const COMMISSION_CURRENCY = data.commissionCurrency;
 
+async function createTrader() {
+    trader = null;
+    trader = new Trader(NAME);
+    trader.config = new Config(
+        BASE,
+        QUOTE,
+        DIRECTION,
+        FEE,
+        BASE_ORDER_SIZE,
+        NUM_SAFETY_ORDERS,
+        TARGET_PROFIT,
+        DEVIATION,
+        STEP_VOLUME_SCALING,
+        changeBalance,
+        COMMISSION_SYMBOL,
+        COMMISSION_CURRENCY
+    );
+}
+
 async function init() {
-    let markets = []
     console.log("Starting Safety Trader");
     console.log("Safety Orders:", NUM_SAFETY_ORDERS)
     console.log("Target Stop: ", TARGET_PROFIT);
@@ -97,46 +110,20 @@ async function init() {
         console.log("Total quote needed for all safety orders: ", totalAssetNeeded, QUOTE)
     if (DIRECTION == "SHORT" || DIRECTION == "SHORT-QUOTE")
         console.log("Total base needed for all safety orders: ", totalAssetNeeded, BASE);
-    while (true) {        
-        markets = [BASE+QUOTE]
-        markets.forEach(market => {
-            if (!traders.hasOwnProperty(market) && !halt) {
-                traders[market] = new Trader(NAME);
-                traders[market].config = new Config(
-                    BASE,
-                    QUOTE,
-                    DIRECTION,
-                    FEE,
-                    BASE_ORDER_SIZE,
-                    NUM_SAFETY_ORDERS,
-                    TARGET_PROFIT,
-                    DEVIATION,
-                    STEP_VOLUME_SCALING,
-                    changeBalance,
-                    COMMISSION_SYMBOL,
-                    COMMISSION_CURRENCY
-                );
-                traders[market].init();
-            }
-            else if (!traders.hasOwnProperty(market) && halt) {
-                console.log(getDate(), "Trading ended by request, balance: ", balance)
-                process.exit();
-            }
-        })
-        if (Object.keys(traders).length > 1) {
-            console.log(`WARNING, ${Object.keys(traders).length} traders running!`);
-        }
-        await sleep(1000);
-    }
+    createTrader();
 }
 
 function changeBalance(value, symbol) {
-    console.log(getDate(),`Removing trader ${symbol}: ${hash(traders[symbol])}`)
-    traders[symbol] = null;
-    delete traders[symbol];
-    console.log(getDate(),`${Object.keys(traders).length} Traders now running: ${JSON.stringify(Object.keys(traders))}`)    
+    console.log(getDate(),`Removing trader ${symbol}: ${hash(trader)}`)
+    trader = null;
+    if (halt) {
+        console.log(getDate(), "Trading ended by request, balance: ", balance)
+        process.exit();
+    }
     balance += value;
     console.log(getDate(),"Balance is now ", balance)
+    await sleep(5000);
+    createTrader();
 }
 
 init();

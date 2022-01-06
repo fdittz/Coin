@@ -137,7 +137,7 @@ module.exports = class Trader  {
     initLongBar() {
         var self = this
         this.bar = new CliProgress.SingleBar({
-            format: `${getDate()} Last: \x1b[33m{value}\x1b[0m | \x1b[33m{percentage}%\x1b[0m >> \x1b[31m${this.safetyPrice}\x1b[0m {bar} \x1b[32m${this.targetPrice}\x1b[0m`,
+            format: `Last: \x1b[33m{value}\x1b[0m | \x1b[33m{percentage}%\x1b[0m >> \x1b[31m${this.safetyPrice}\x1b[0m {bar} \x1b[32m${this.targetPrice}\x1b[0m`,
             formatValue: function(v, options, type) {
                 if (options.autopadding !== true){
                     if (type == 'percentage')
@@ -164,7 +164,7 @@ module.exports = class Trader  {
     initShortBar() {
         var self = this
         this.bar = new CliProgress.SingleBar({
-            format: `${getDate()} Last: \x1b[33m{value}\x1b[0m | \x1b[33m{percentage}%\x1b[0m >> \x1b[31m${this.safetyPrice}\x1b[0m {bar} \x1b[32m${this.targetPrice}\x1b[0m`,
+            format: `Last: \x1b[33m{value}\x1b[0m | \x1b[33m{percentage}%\x1b[0m >> \x1b[31m${this.safetyPrice}\x1b[0m {bar} \x1b[32m${this.targetPrice}\x1b[0m`,
             formatValue: function(v, options, type) {
                 if (options.autopadding !== true){
                     if (type == 'percentage')
